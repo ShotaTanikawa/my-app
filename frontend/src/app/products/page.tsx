@@ -1,0 +1,361 @@
+"use client";
+
+import { useAuth } from "@/components/auth-provider";
+import {
+  addStock,
+  createProduct,
+  getProducts,
+  updateProduct,
+} from "@/lib/api";
+import { formatCurrency } from "@/lib/format";
+import type { Product } from "@/types/api";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+
+export default function ProductsPage() {
+  const { state } = useAuth();
+  const credentials = state?.credentials;
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const [stockQuantity, setStockQuantity] = useState(1);
+
+  const [createForm, setCreateForm] = useState({
+    sku: "",
+    name: "",
+    description: "",
+    unitPrice: "",
+  });
+
+  const [editForm, setEditForm] = useState({
+    name: "",
+    description: "",
+    unitPrice: "",
+  });
+
+  const role = state?.user.role;
+  const canManageProducts = role === "ADMIN";
+  const canAdjustStock = role === "ADMIN" || role === "OPERATOR";
+
+  const selectedProduct = useMemo(
+    () => products.find((product) => product.id === selectedProductId) ?? null,
+    [products, selectedProductId],
+  );
+
+  useEffect(() => {
+    const currentCredentials = credentials;
+    if (!currentCredentials) {
+      return;
+    }
+    let mounted = true;
+
+    async function load() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const data = await getProducts(currentCredentials!);
+        if (mounted) {
+          setProducts(data);
+        }
+      } catch (err) {
+        if (!mounted) {
+          return;
+        }
+
+        setError(err instanceof Error ? err.message : "商品の取得に失敗しました。");
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
+
+    return () => {
+      mounted = false;
+    };
+  }, [credentials]);
+
+  useEffect(() => {
+    if (!selectedProduct) {
+      setEditForm({ name: "", description: "", unitPrice: "" });
+      return;
+    }
+
+    setEditForm({
+      name: selectedProduct.name,
+      description: selectedProduct.description ?? "",
+      unitPrice: String(selectedProduct.unitPrice),
+    });
+  }, [selectedProduct]);
+
+  if (!state || !credentials) {
+    return null;
+  }
+
+  async function refreshProducts() {
+    const data = await getProducts(credentials!);
+    setProducts(data);
+  }
+
+  async function handleCreateProduct(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+
+    try {
+      await createProduct(credentials!, {
+        sku: createForm.sku.trim(),
+        name: createForm.name.trim(),
+        description: createForm.description.trim() || undefined,
+        unitPrice: Number(createForm.unitPrice),
+      });
+      setCreateForm({ sku: "", name: "", description: "", unitPrice: "" });
+      setSuccess("商品を作成しました。");
+      await refreshProducts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "商品作成に失敗しました。");
+    }
+  }
+
+  async function handleUpdateProduct(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedProductId) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+
+    try {
+      await updateProduct(credentials!, selectedProductId, {
+        name: editForm.name.trim(),
+        description: editForm.description.trim() || undefined,
+        unitPrice: Number(editForm.unitPrice),
+      });
+      setSuccess("商品を更新しました。");
+      await refreshProducts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "商品更新に失敗しました。");
+    }
+  }
+
+  async function handleAddStock(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedProductId) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+
+    try {
+      await addStock(credentials!, selectedProductId, stockQuantity);
+      setSuccess("在庫を追加しました。");
+      await refreshProducts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "在庫追加に失敗しました。");
+    }
+  }
+
+  return (
+    <div className="page">
+      <section className="card">
+        <h2 style={{ marginBottom: 10 }}>商品一覧</h2>
+
+        {error && <p className="inline-error">{error}</p>}
+        {success && <p style={{ color: "#137a49", marginTop: 6 }}>{success}</p>}
+
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>商品名</th>
+                <th>単価</th>
+                <th>販売可能</th>
+                <th>引当済</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((product) => (
+                <tr key={product.id}>
+                  <td>{product.sku}</td>
+                  <td>{product.name}</td>
+                  <td>{formatCurrency(product.unitPrice)}</td>
+                  <td>{product.availableQuantity}</td>
+                  <td>{product.reservedQuantity}</td>
+                  <td>
+                    <button
+                      className="button secondary"
+                      type="button"
+                      onClick={() => setSelectedProductId(product.id)}
+                    >
+                      選択
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!loading && products.length === 0 && (
+                <tr>
+                  <td colSpan={6}>商品がありません。</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div className="grid cols-2">
+        {canManageProducts && (
+          <section className="card">
+            <h2 style={{ marginBottom: 10 }}>商品作成（ADMIN）</h2>
+            <form className="form-grid single" onSubmit={handleCreateProduct}>
+              <div className="field">
+                <label htmlFor="create-sku">SKU</label>
+                <input
+                  id="create-sku"
+                  className="input"
+                  value={createForm.sku}
+                  onChange={(event) => setCreateForm((prev) => ({ ...prev, sku: event.target.value }))}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="create-name">商品名</label>
+                <input
+                  id="create-name"
+                  className="input"
+                  value={createForm.name}
+                  onChange={(event) => setCreateForm((prev) => ({ ...prev, name: event.target.value }))}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="create-unit-price">単価</label>
+                <input
+                  id="create-unit-price"
+                  className="input"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={createForm.unitPrice}
+                  onChange={(event) =>
+                    setCreateForm((prev) => ({ ...prev, unitPrice: event.target.value }))
+                  }
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="create-description">説明</label>
+                <textarea
+                  id="create-description"
+                  className="textarea"
+                  value={createForm.description}
+                  onChange={(event) =>
+                    setCreateForm((prev) => ({ ...prev, description: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="button-row">
+                <button className="button primary" type="submit">
+                  作成
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
+
+        <section className="card">
+          <h2 style={{ marginBottom: 10 }}>選択中の商品</h2>
+          {!selectedProduct && <p>商品を選択してください。</p>}
+          {selectedProduct && (
+            <div className="page" style={{ gap: 14 }}>
+              <div>
+                <strong>{selectedProduct.name}</strong>
+                <div style={{ color: "#607086", marginTop: 4 }}>SKU: {selectedProduct.sku}</div>
+              </div>
+
+              {canManageProducts && (
+                <form className="form-grid single" onSubmit={handleUpdateProduct}>
+                  <div className="field">
+                    <label htmlFor="edit-name">商品名</label>
+                    <input
+                      id="edit-name"
+                      className="input"
+                      value={editForm.name}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({ ...prev, name: event.target.value }))
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="edit-price">単価</label>
+                    <input
+                      id="edit-price"
+                      className="input"
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={editForm.unitPrice}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({ ...prev, unitPrice: event.target.value }))
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="edit-description">説明</label>
+                    <textarea
+                      id="edit-description"
+                      className="textarea"
+                      value={editForm.description}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({ ...prev, description: event.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="button-row">
+                    <button className="button primary" type="submit">
+                      更新
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {canAdjustStock && (
+                <form className="form-grid single" onSubmit={handleAddStock}>
+                  <div className="field">
+                    <label htmlFor="stock-quantity">在庫追加数</label>
+                    <input
+                      id="stock-quantity"
+                      className="input"
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={stockQuantity}
+                      onChange={(event) => setStockQuantity(Number(event.target.value))}
+                      required
+                    />
+                  </div>
+                  <div className="button-row">
+                    <button className="button secondary" type="submit">
+                      在庫追加
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
