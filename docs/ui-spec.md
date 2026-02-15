@@ -1,7 +1,7 @@
 # UI仕様（MVP v1 / Next.js）
 
 最終更新日: 2026-02-13
-前提: BackendはSpring Boot API（HTTP Basic認証）
+前提: BackendはSpring Boot API（JWT Bearer認証）
 
 ## 1. 画面一覧
 
@@ -35,13 +35,14 @@
 
 動作:
 
-- 入力した資格情報で `GET /api/auth/me` を実行
+- 入力した資格情報で `POST /api/auth/login` を実行
 - 成功時にダッシュボードへ遷移
 - 失敗時にエラーメッセージ表示
 
 補足:
 
-- MVPではクライアント側でBasic認証情報を保持（メモリ or セッション）
+- クライアント側でアクセストークンとRefresh Tokenをセッション保持
+- API呼び出し前に有効期限が近い場合は `POST /api/auth/refresh` で更新
 
 ## 3.2 UI-002 ダッシュボード
 
@@ -161,4 +162,3 @@ API:
 - P2: 商品作成/編集、在庫追加
 - P3: 受注作成、受注詳細、確定/キャンセル
 - P4: ダッシュボード集計とUX改善
-

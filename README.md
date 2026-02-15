@@ -5,6 +5,7 @@
 要件定義ドキュメント: `docs/requirements.md`
 技術判断メモ: `docs/tech-decisions.md`
 UI仕様: `docs/ui-spec.md`
+デプロイ手順: `docs/deploy.md`
 
 - フロントエンド: Next.js 16 + TypeScript
 - Spring Security + ロール制御（`ADMIN` / `OPERATOR` / `VIEWER`）
@@ -21,7 +22,7 @@ UI仕様: `docs/ui-spec.md`
 - Next.js 16
 - React 19
 - Spring Data JPA
-- Spring Security (HTTP Basic)
+- Spring Security (JWT Bearer)
 - Flyway
 - PostgreSQL
 
@@ -70,6 +71,11 @@ pnpm dev
 - `DB_PASSWORD`
 - `LOW_STOCK_THRESHOLD`（低在庫閾値）
 - `LOW_STOCK_REPORT_CRON`（低在庫レポート実行cron）
+- `APP_JWT_SECRET`（JWT署名シークレット）
+- `APP_JWT_EXPIRATION_SECONDS`（JWT有効期限秒）
+- `APP_JWT_REFRESH_EXPIRATION_SECONDS`（Refresh Token有効期限秒）
+- `REFRESH_TOKEN_CLEANUP_CRON`（Refresh Tokenクリーンアップcron）
+- `APP_SEED_ENABLED`（初期ユーザー自動作成フラグ）
 
 ## 初期ユーザー
 
@@ -131,16 +137,22 @@ pnpm test:e2e
 
 ## API
 
-### 認証確認
+### ログインしてトークン取得
 
 ```bash
-curl -u admin:admin123 http://localhost:8080/api/auth/me
+LOGIN_JSON=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"admin123"}')
+
+TOKEN=$(echo "${LOGIN_JSON}" | jq -r '.accessToken')
+REFRESH_TOKEN=$(echo "${LOGIN_JSON}" | jq -r '.refreshToken')
 ```
 
 ### 商品作成（ADMIN）
 
 ```bash
-curl -u admin:admin123 -X POST http://localhost:8080/api/products \
+curl -X POST http://localhost:8080/api/products \
+  -H "Authorization: Bearer ${TOKEN}" \
   -H 'Content-Type: application/json' \
   -d '{
     "sku": "SKU-001",
@@ -153,7 +165,12 @@ curl -u admin:admin123 -X POST http://localhost:8080/api/products \
 ### 在庫追加（ADMIN/OPERATOR）
 
 ```bash
-curl -u operator:operator123 -X POST http://localhost:8080/api/products/1/stock \
+OP_TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"operator","password":"operator123"}' | jq -r '.accessToken')
+
+curl -X POST http://localhost:8080/api/products/1/stock \
+  -H "Authorization: Bearer ${OP_TOKEN}" \
   -H 'Content-Type: application/json' \
   -d '{"quantity": 50}'
 ```
@@ -161,7 +178,8 @@ curl -u operator:operator123 -X POST http://localhost:8080/api/products/1/stock 
 ### 受注作成（ADMIN/OPERATOR）
 
 ```bash
-curl -u operator:operator123 -X POST http://localhost:8080/api/orders \
+curl -X POST http://localhost:8080/api/orders \
+  -H "Authorization: Bearer ${OP_TOKEN}" \
   -H 'Content-Type: application/json' \
   -d '{
     "customerName": "Acme Corp",
@@ -174,18 +192,35 @@ curl -u operator:operator123 -X POST http://localhost:8080/api/orders \
 ### 受注確定
 
 ```bash
-curl -u operator:operator123 -X POST http://localhost:8080/api/orders/1/confirm
+curl -X POST http://localhost:8080/api/orders/1/confirm \
+  -H "Authorization: Bearer ${OP_TOKEN}"
 ```
 
 ### 受注キャンセル
 
 ```bash
-curl -u operator:operator123 -X POST http://localhost:8080/api/orders/1/cancel
+curl -X POST http://localhost:8080/api/orders/1/cancel \
+  -H "Authorization: Bearer ${OP_TOKEN}"
+```
+
+### アクセストークン更新
+
+```bash
+curl -X POST http://localhost:8080/api/auth/refresh \
+  -H 'Content-Type: application/json' \
+  -d "{\"refreshToken\":\"${REFRESH_TOKEN}\"}"
+```
+
+### ログアウト（Refresh Token失効）
+
+```bash
+curl -X POST http://localhost:8080/api/auth/logout \
+  -H 'Content-Type: application/json' \
+  -d "{\"refreshToken\":\"${REFRESH_TOKEN}\"}"
 ```
 
 ## 今後の拡張候補
 
-- JWT認証
 - 監査ログ（誰がいつ在庫を動かしたか）
 - CSV一括取込
 - 日次バッチ（在庫レポート）

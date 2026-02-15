@@ -5,6 +5,14 @@ export type MeResponse = {
   role: UserRole;
 };
 
+export type LoginResponse = {
+  accessToken: string;
+  tokenType: string;
+  expiresIn: number;
+  refreshToken: string;
+  user: MeResponse;
+};
+
 export type Product = {
   id: number;
   sku: string;

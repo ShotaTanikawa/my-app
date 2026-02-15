@@ -3,12 +3,14 @@ package com.example.backend.config;
 import com.example.backend.user.AppUser;
 import com.example.backend.user.AppUserRepository;
 import com.example.backend.user.UserRole;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(name = "app.seed.enabled", havingValue = "true", matchIfMissing = true)
 public class DataInitializer implements ApplicationRunner {
 
     private final AppUserRepository appUserRepository;

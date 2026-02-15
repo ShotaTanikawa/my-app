@@ -1,4 +1,4 @@
-import type { ApiErrorPayload, MeResponse, Product, SalesOrder } from "@/types/api";
+import type { ApiErrorPayload, LoginResponse, MeResponse, Product, SalesOrder } from "@/types/api";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
@@ -12,17 +12,12 @@ export class ApiClientError extends Error {
   }
 }
 
-function toBasicAuthHeader(username: string, password: string): string {
-  if (typeof window === "undefined") {
-    return "";
-  }
-
-  return `Basic ${window.btoa(`${username}:${password}`)}`;
+function toBearerAuthHeader(accessToken: string): string {
+  return `Bearer ${accessToken}`;
 }
 
 type Credentials = {
-  username: string;
-  password: string;
+  accessToken: string;
 };
 
 type RequestOptions = {
@@ -36,7 +31,7 @@ async function request<T>(path: string, options?: RequestOptions): Promise<T> {
   headers.set("Content-Type", "application/json");
 
   if (options?.credentials) {
-    headers.set("Authorization", toBasicAuthHeader(options.credentials.username, options.credentials.password));
+    headers.set("Authorization", toBearerAuthHeader(options.credentials.accessToken));
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -66,6 +61,27 @@ async function request<T>(path: string, options?: RequestOptions): Promise<T> {
   }
 
   return (await response.json()) as T;
+}
+
+export async function login(username: string, password: string): Promise<LoginResponse> {
+  return request<LoginResponse>("/api/auth/login", {
+    method: "POST",
+    body: { username, password },
+  });
+}
+
+export async function refresh(refreshToken: string): Promise<LoginResponse> {
+  return request<LoginResponse>("/api/auth/refresh", {
+    method: "POST",
+    body: { refreshToken },
+  });
+}
+
+export async function logout(refreshToken: string): Promise<void> {
+  return request<void>("/api/auth/logout", {
+    method: "POST",
+    body: { refreshToken },
+  });
 }
 
 export async function getMe(credentials: Credentials): Promise<MeResponse> {

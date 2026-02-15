@@ -3,6 +3,7 @@ package com.example.backend.common;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -33,6 +34,14 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
 
         return buildError(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiError> handleAuthentication(AuthenticationException ex, HttpServletRequest request) {
+        String message = ex.getMessage() == null || ex.getMessage().isBlank()
+                ? "Authentication failed"
+                : ex.getMessage();
+        return buildError(HttpStatus.UNAUTHORIZED, message, request.getRequestURI());
     }
 
     @ExceptionHandler(Exception.class)

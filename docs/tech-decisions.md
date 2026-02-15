@@ -49,13 +49,13 @@
 
 ## 1.3 このプロジェクトでの採用
 
-- MVP: `HTTP Basic`
-- 次フェーズ: `JWT + Refresh Token` へ移行
+- 現在: `JWT + Refresh Token`
+- 次フェーズ: Refresh Tokenローテーション強化（端末単位失効・監査ログ）へ拡張
 
 理由:
 
-- 先に受発注/在庫の業務ロジックを固める価値が高いため
-- 認証の高度化は後追いでも業務要件に影響しにくいため
+- フロントエンドとの認証連携をシンプルにしつつ、Spring Securityの構成を実践的に学べるため
+- 将来の外部公開やサービス分離に備えた形へ先に寄せるため
 
 ## 2. デプロイ先: Render と Railway
 
@@ -104,4 +104,8 @@
   - `DB_PASSWORD`
   - `LOW_STOCK_THRESHOLD`
   - `LOW_STOCK_REPORT_CRON`
-
+  - `APP_JWT_SECRET`
+  - `APP_JWT_EXPIRATION_SECONDS`
+  - `APP_JWT_REFRESH_EXPIRATION_SECONDS`
+  - `REFRESH_TOKEN_CLEANUP_CRON`
+  - `APP_SEED_ENABLED`
