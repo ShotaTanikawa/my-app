@@ -10,6 +10,14 @@
 
 ## 2. Backend（Render）
 
+まず `render.yaml` を使ったBlueprintデプロイを推奨します。
+
+### 2.0 Blueprintで作成（推奨）
+
+- Renderで `New +` -> `Blueprint`
+- このリポジトリを選択すると `render.yaml` が読まれ、PostgreSQL + Backend が同時作成される
+- 作成後に `CORS_ALLOWED_ORIGINS` だけVercelのURLへ更新する
+
 ### 2.1 Web Service作成
 
 - Renderで `New +` -> `Web Service`
@@ -57,6 +65,14 @@
 
 - `NEXT_PUBLIC_API_BASE_URL=https://<render-backend-domain>`
 - `NEXT_PUBLIC_LOW_STOCK_THRESHOLD=10`（任意）
+
+CLIで設定する場合:
+
+```bash
+cd frontend
+pnpm dlx vercel env add NEXT_PUBLIC_API_BASE_URL production
+pnpm dlx vercel env add NEXT_PUBLIC_LOW_STOCK_THRESHOLD production
+```
 
 ## 5. デプロイ後チェック
 
