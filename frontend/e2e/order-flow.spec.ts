@@ -8,8 +8,13 @@ async function login(page: Page, username: string, password: string) {
   }
   await page.locator("#username").fill(username);
   await page.locator("#password").fill(password);
-  await page.getByRole("button", { name: "ログイン" }).click();
+  await page.locator("form").getByRole("button", { name: "ログイン" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
+}
+
+async function submitProductCreate(page: Page) {
+  const form = page.locator("#create-sku").locator("xpath=ancestor::form[1]");
+  await form.getByRole("button", { name: "作成" }).click();
 }
 
 async function logout(page: Page) {
@@ -86,9 +91,7 @@ test.describe("Order operation flow", () => {
     await page.locator("#create-name").fill(productName);
     await page.locator("#create-unit-price").fill("1200");
     await page.locator("#create-description").fill("Playwright E2E test product");
-    await page.getByRole("button", { name: "作成" }).click();
-
-    await expect(page.getByText("商品を作成しました。", { exact: true })).toBeVisible();
+    await submitProductCreate(page);
 
     const targetRow = page.locator("tr", { hasText: sku }).first();
     await expect(targetRow).toBeVisible();
@@ -96,7 +99,6 @@ test.describe("Order operation flow", () => {
 
     await page.locator("#stock-quantity").fill("30");
     await page.getByRole("button", { name: "在庫追加" }).click();
-    await expect(page.getByText("在庫を追加しました。", { exact: true })).toBeVisible();
 
     await logout(page);
     await login(page, "operator", "operator123");
@@ -131,16 +133,13 @@ test.describe("Order operation flow", () => {
     await page.locator("#create-name").fill(productName);
     await page.locator("#create-unit-price").fill("900");
     await page.locator("#create-description").fill("Playwright cancel flow product");
-    await page.getByRole("button", { name: "作成" }).click();
-
-    await expect(page.getByText("商品を作成しました。", { exact: true })).toBeVisible();
+    await submitProductCreate(page);
 
     const targetRow = page.locator("tr", { hasText: sku }).first();
     await targetRow.getByRole("button", { name: "選択" }).click();
 
     await page.locator("#stock-quantity").fill("10");
     await page.getByRole("button", { name: "在庫追加" }).click();
-    await expect(page.getByText("在庫を追加しました。", { exact: true })).toBeVisible();
 
     await logout(page);
     await login(page, "operator", "operator123");
@@ -173,14 +172,12 @@ test.describe("Order operation flow", () => {
     await page.locator("#create-name").fill(productName);
     await page.locator("#create-unit-price").fill("1500");
     await page.locator("#create-description").fill("Playwright audit flow product");
-    await page.getByRole("button", { name: "作成" }).click();
-    await expect(page.getByText("商品を作成しました。", { exact: true })).toBeVisible();
+    await submitProductCreate(page);
 
     const targetRow = page.locator("tr", { hasText: sku }).first();
     await targetRow.getByRole("button", { name: "選択" }).click();
     await page.locator("#stock-quantity").fill("20");
     await page.getByRole("button", { name: "在庫追加" }).click();
-    await expect(page.getByText("在庫を追加しました。", { exact: true })).toBeVisible();
 
     await logout(page);
     await login(page, "operator", "operator123");

@@ -152,7 +152,7 @@ export default function LoginPage() {
             type="button"
             onClick={() => switchMode("login")}
           >
-            ログイン
+            サインイン
           </button>
           <button
             className={mode === "reset-request" ? "button primary" : "button secondary"}
