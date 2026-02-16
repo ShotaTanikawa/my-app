@@ -12,4 +12,6 @@ public interface ProductCategoryRepository extends JpaRepository<ProductCategory
     boolean existsByCode(String code);
 
     Optional<ProductCategory> findByCode(String code);
+
+    Optional<ProductCategory> findByCodeIgnoreCase(String code);
 }

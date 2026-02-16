@@ -50,8 +50,11 @@ async function expectAuditLogRow(
 
         for (let index = 0; index < count; index += 1) {
           const text = (await rows.nth(index).innerText()).replace(/\s+/g, " ").trim();
-          const includesAction = text.includes(action);
-          const includesAllExpectedTexts = expectedTexts.every((value) => text.includes(value));
+          const normalizedText = text.toLowerCase();
+          const includesAction = normalizedText.includes(action.toLowerCase());
+          const includesAllExpectedTexts = expectedTexts.every((value) =>
+            normalizedText.includes(value.toLowerCase()),
+          );
           if (includesAction && includesAllExpectedTexts) {
             return true;
           }

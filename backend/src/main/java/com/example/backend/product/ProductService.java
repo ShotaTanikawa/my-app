@@ -27,11 +27,15 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,6 +44,10 @@ public class ProductService {
     private static final int DEFAULT_IMPORT_REORDER_POINT = 5;
     private static final int DEFAULT_IMPORT_REORDER_QUANTITY = 10;
     private static final String ACTION_PRODUCT_IMPORT = "PRODUCT_IMPORT";
+    private static final String DEFAULT_SKU_PREFIX = "PRD";
+    private static final int SKU_PREFIX_MAX_LENGTH = 12;
+    private static final DateTimeFormatter SKU_DATE_FORMAT = DateTimeFormatter.ofPattern("yyMMdd");
+    private static final Pattern SKU_PATTERN = Pattern.compile("^[A-Z0-9][A-Z0-9-]{1,63}$");
 
     private final ProductRepository productRepository;
     private final ProductCategoryRepository productCategoryRepository;
@@ -60,12 +68,13 @@ public class ProductService {
 
     @Transactional
     public ProductResponse createProduct(CreateProductRequest request) {
-        if (productRepository.existsBySku(request.sku())) {
-            throw new BusinessRuleException("SKU already exists: " + request.sku());
+        String normalizedSku = requireValidSku(request.sku(), "SKU");
+        if (productRepository.existsBySkuIgnoreCase(normalizedSku)) {
+            throw new BusinessRuleException("SKU already exists: " + normalizedSku);
         }
 
         Product product = new Product();
-        product.setSku(request.sku());
+        product.setSku(normalizedSku);
         product.setName(request.name());
         product.setDescription(request.description());
         product.setUnitPrice(request.unitPrice());
@@ -180,6 +189,37 @@ public class ProductService {
         );
 
         return toResponse(product, updatedInventory);
+    }
+
+    @Transactional(readOnly = true)
+    public String suggestNextSku(Long categoryId) {
+        ProductCategory category = resolveCategory(categoryId);
+        String prefix = buildSkuPrefix(category);
+        String datePart = LocalDate.now().format(SKU_DATE_FORMAT);
+        String base = prefix + "-" + datePart;
+        String skuPrefix = base + "-";
+
+        int sequence = 1;
+        Optional<Product> latest = productRepository.findTopBySkuStartingWithOrderBySkuDesc(skuPrefix);
+        if (latest.isPresent()) {
+            String latestSku = latest.get().getSku();
+            if (latestSku.length() > skuPrefix.length()) {
+                String suffix = latestSku.substring(skuPrefix.length());
+                if (suffix.matches("\\d{4}")) {
+                    sequence = Integer.parseInt(suffix) + 1;
+                }
+            }
+        }
+
+        while (sequence <= 9999) {
+            String candidate = skuPrefix + String.format("%04d", sequence);
+            if (!productRepository.existsBySkuIgnoreCase(candidate)) {
+                return candidate;
+            }
+            sequence++;
+        }
+
+        throw new BusinessRuleException("SKU候補を採番できませんでした。カテゴリを見直してください。");
     }
 
     @Transactional
@@ -336,7 +376,7 @@ public class ProductService {
 
     private boolean upsertFromImportRow(ImportRow row) {
         ProductCategory category = resolveCategoryByCode(row.categoryCode());
-        Optional<Product> existing = productRepository.findBySku(row.sku());
+        Optional<Product> existing = productRepository.findBySkuIgnoreCase(row.sku());
         boolean created = existing.isEmpty();
 
         Product product = existing.orElseGet(Product::new);
@@ -371,7 +411,7 @@ public class ProductService {
         if (categoryCode == null || categoryCode.isBlank()) {
             return null;
         }
-        return productCategoryRepository.findByCode(categoryCode)
+        return productCategoryRepository.findByCodeIgnoreCase(categoryCode)
                 .orElseThrow(() -> new BusinessRuleException("カテゴリコードが存在しません: " + categoryCode));
     }
 
@@ -402,10 +442,7 @@ public class ProductService {
         String availableQuantityValue = readCell(cells, headerIndexMap, "availablequantity");
         String categoryCode = readCell(cells, headerIndexMap, "categorycode");
         String description = readCell(cells, headerIndexMap, "description");
-
-        if (sku.isBlank()) {
-            throw new BusinessRuleException("row " + rowNumber + ": sku が空です。");
-        }
+        String normalizedSku = requireValidSku(sku, "row " + rowNumber + ": sku");
         if (name.isBlank()) {
             throw new BusinessRuleException("row " + rowNumber + ": name が空です。");
         }
@@ -431,7 +468,7 @@ public class ProductService {
         }
 
         return new ImportRow(
-                sku,
+                normalizedSku,
                 name,
                 description.isBlank() ? null : description,
                 unitPrice,
@@ -479,6 +516,40 @@ public class ProductService {
         }
         values.add(currentValue.toString());
         return values;
+    }
+
+    private String requireValidSku(String rawSku, String fieldName) {
+        String normalized = normalizeSku(rawSku);
+        if (normalized.isBlank()) {
+            throw new BusinessRuleException(fieldName + " が空です。");
+        }
+        if (!SKU_PATTERN.matcher(normalized).matches()) {
+            throw new BusinessRuleException(fieldName + " の形式が不正です。英大文字・数字・ハイフンのみ利用できます。");
+        }
+        return normalized;
+    }
+
+    private String normalizeSku(String rawSku) {
+        if (rawSku == null) {
+            return "";
+        }
+        return rawSku.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String buildSkuPrefix(ProductCategory category) {
+        String source = category == null ? DEFAULT_SKU_PREFIX : category.getCode();
+        String normalized = source == null ? "" : source.trim().toUpperCase(Locale.ROOT);
+        normalized = normalized.replaceAll("[^A-Z0-9]+", "-");
+        normalized = normalized.replaceAll("-{2,}", "-");
+        normalized = normalized.replaceAll("^-+|-+$", "");
+        if (normalized.isBlank()) {
+            normalized = DEFAULT_SKU_PREFIX;
+        }
+        if (normalized.length() > SKU_PREFIX_MAX_LENGTH) {
+            normalized = normalized.substring(0, SKU_PREFIX_MAX_LENGTH);
+            normalized = normalized.replaceAll("-+$", "");
+        }
+        return normalized.isBlank() ? DEFAULT_SKU_PREFIX : normalized;
     }
 
     private record ImportRow(

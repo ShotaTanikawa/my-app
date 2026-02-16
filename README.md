@@ -178,6 +178,19 @@ curl -X POST http://localhost:8080/api/products \
   }'
 ```
 
+### SKU候補の取得（ADMIN）
+
+```bash
+curl -X GET "http://localhost:8080/api/products/sku/next?categoryId=1" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+レスポンス例:
+
+```json
+{"sku":"FIGURE-GEAR-260216-0001"}
+```
+
 ### 商品CSV一括取込（ADMIN）
 
 ```bash

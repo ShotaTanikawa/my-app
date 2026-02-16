@@ -11,6 +11,7 @@ import type {
   ProductImportResult,
   ProductPageResponse,
   ProductQuery,
+  ProductSkuSuggestion,
   ProductSupplierContract,
   PurchaseOrder,
   PurchaseOrderReceipt,
@@ -192,6 +193,19 @@ export async function importProductsCsv(
   }
 
   return (await response.json()) as ProductImportResult;
+}
+
+export async function getNextProductSku(
+  credentials: Credentials,
+  categoryId?: number,
+): Promise<ProductSkuSuggestion> {
+  const searchParams = new URLSearchParams();
+  if (categoryId !== undefined) {
+    searchParams.set("categoryId", String(categoryId));
+  }
+  const query = searchParams.toString();
+  const path = query ? `/api/products/sku/next?${query}` : "/api/products/sku/next";
+  return request<ProductSkuSuggestion>(path, { credentials });
 }
 
 export async function createProduct(

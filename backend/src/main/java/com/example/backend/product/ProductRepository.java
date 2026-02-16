@@ -10,6 +10,10 @@ import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpecificationExecutor<Product> {
     boolean existsBySku(String sku);
+    boolean existsBySkuIgnoreCase(String sku);
 
     Optional<Product> findBySku(String sku);
+    Optional<Product> findBySkuIgnoreCase(String sku);
+
+    Optional<Product> findTopBySkuStartingWithOrderBySkuDesc(String skuPrefix);
 }

@@ -5,6 +5,7 @@ import com.example.backend.product.dto.CreateProductRequest;
 import com.example.backend.product.dto.ProductImportResultResponse;
 import com.example.backend.product.dto.ProductPageResponse;
 import com.example.backend.product.dto.ProductResponse;
+import com.example.backend.product.dto.ProductSkuSuggestionResponse;
 import com.example.backend.product.dto.UpdateProductRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -50,6 +51,12 @@ public class ProductController {
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','VIEWER')")
     public ProductResponse getProduct(@PathVariable Long productId) {
         return productService.getProduct(productId);
+    }
+
+    @GetMapping("/sku/next")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ProductSkuSuggestionResponse getNextSku(@RequestParam(required = false) Long categoryId) {
+        return new ProductSkuSuggestionResponse(productService.suggestNextSku(categoryId));
     }
 
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

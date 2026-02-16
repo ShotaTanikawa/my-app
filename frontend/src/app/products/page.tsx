@@ -5,6 +5,7 @@ import {
   addStock,
   createProduct,
   createProductCategory,
+  getNextProductSku,
   getProducts,
   getProductCategories,
   getProductsPage,
@@ -102,6 +103,7 @@ export default function ProductsPage() {
     code: "",
     name: "",
   });
+  const [creatingSku, setCreatingSku] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<ProductImportResult | null>(null);
 
@@ -354,6 +356,23 @@ export default function ProductsPage() {
     setPage(0);
   }
 
+  async function handleGenerateSku() {
+    setError("");
+    setSuccess("");
+    setCreatingSku(true);
+
+    try {
+      const categoryId = createForm.categoryId ? Number(createForm.categoryId) : undefined;
+      const result = await getNextProductSku(credentials!, categoryId);
+      setCreateForm((prev) => ({ ...prev, sku: result.sku }));
+      setSuccess(`SKU候補を反映しました: ${result.sku}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "SKU自動採番に失敗しました。");
+    } finally {
+      setCreatingSku(false);
+    }
+  }
+
   function handleDownloadImportTemplate() {
     const blob = new Blob([PRODUCT_IMPORT_TEMPLATE_CSV], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -542,13 +561,25 @@ export default function ProductsPage() {
             <form className="form-grid single" onSubmit={handleCreateProduct}>
               <div className="field">
                 <label htmlFor="create-sku">SKU</label>
-                <input
-                  id="create-sku"
-                  className="input"
-                  value={createForm.sku}
-                  onChange={(event) => setCreateForm((prev) => ({ ...prev, sku: event.target.value }))}
-                  required
-                />
+                <div className="button-row">
+                  <input
+                    id="create-sku"
+                    className="input"
+                    value={createForm.sku}
+                    onChange={(event) =>
+                      setCreateForm((prev) => ({ ...prev, sku: event.target.value.toUpperCase() }))
+                    }
+                    required
+                  />
+                  <button
+                    className="button secondary"
+                    type="button"
+                    onClick={handleGenerateSku}
+                    disabled={creatingSku}
+                  >
+                    {creatingSku ? "採番中..." : "自動採番"}
+                  </button>
+                </div>
               </div>
               <div className="field">
                 <label htmlFor="create-name">商品名</label>

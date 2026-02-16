@@ -87,6 +87,11 @@ export type ProductImportResult = {
   errors: ProductImportError[];
 };
 
+// SKU自動採番候補。
+export type ProductSkuSuggestion = {
+  sku: string;
+};
+
 // 受注明細1行分。
 export type SalesOrderItem = {
   productId: number;
