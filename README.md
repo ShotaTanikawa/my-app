@@ -5,6 +5,8 @@
 要件定義ドキュメント: `docs/requirements.md`
 技術判断メモ: `docs/tech-decisions.md`
 UI仕様: `docs/ui-spec.md`
+現行機能一覧（実装ベース）: `docs/current-features.md`
+プロジェクト構成ガイド: `docs/project-structure.md`
 デプロイ手順: `docs/deploy.md`
 V1.1ロードマップ: `docs/v1.1-roadmap.md`
 
@@ -83,6 +85,10 @@ pnpm dev
 - `AUDIT_LOG_RETENTION_DAYS`（監査ログ保持日数）
 - `AUDIT_LOG_RETENTION_CRON`（監査ログ定期クリーンアップcron）
 - `APP_SEED_ENABLED`（初期ユーザー自動作成フラグ）
+- `APP_SEED_SAMPLE_DATA_ENABLED`（実運用寄りサンプルデータ投入フラグ）
+- `APP_SEED_SAMPLE_PRODUCT_COUNT_PER_LEAF`（末端カテゴリごとの商品件数）
+- `APP_SEED_SAMPLE_SALES_ORDER_TARGET`（サンプル受注件数目標）
+- `APP_SEED_SAMPLE_PURCHASE_ORDER_TARGET`（サンプル仕入発注件数目標）
 
 ## 初期ユーザー
 
@@ -91,6 +97,26 @@ pnpm dev
 - `admin / admin123` (ADMIN)
 - `operator / operator123` (OPERATOR)
 - `viewer / viewer123` (VIEWER)
+
+## 実運用想定のサンプルデータ投入（ローカル）
+
+商品数が多い状態で画面検証したい場合は、以下を付けて起動してください。
+
+```bash
+cd backend
+APP_SEED_SAMPLE_DATA_ENABLED=true ./mvnw spring-boot:run
+```
+
+必要に応じて件数も調整できます。
+
+```bash
+cd backend
+APP_SEED_SAMPLE_DATA_ENABLED=true \
+APP_SEED_SAMPLE_PRODUCT_COUNT_PER_LEAF=20 \
+APP_SEED_SAMPLE_SALES_ORDER_TARGET=40 \
+APP_SEED_SAMPLE_PURCHASE_ORDER_TARGET=20 \
+./mvnw spring-boot:run
+```
 
 ## フロントエンド画面
 

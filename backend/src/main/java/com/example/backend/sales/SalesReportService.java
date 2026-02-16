@@ -1,5 +1,6 @@
 package com.example.backend.sales;
 
+import com.example.backend.common.BadRequestException;
 import com.example.backend.order.OrderStatus;
 import com.example.backend.order.SalesOrder;
 import com.example.backend.order.SalesOrderItem;
@@ -8,6 +9,8 @@ import com.example.backend.sales.dto.SalesLineResponse;
 import com.example.backend.sales.dto.SalesReportResponse;
 import com.example.backend.sales.dto.SalesSummaryResponse;
 import com.example.backend.sales.dto.SalesTrendPointResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +32,8 @@ import java.util.TreeMap;
  */
 @Service
 public class SalesReportService {
+
+    private static final Logger log = LoggerFactory.getLogger(SalesReportService.class);
 
     private static final String METRIC_BASIS = "CONFIRMED_UPDATED_AT";
     private static final ZoneOffset REPORT_ZONE = ZoneOffset.UTC;
@@ -61,14 +66,32 @@ public class SalesReportService {
 
         for (SalesOrder order : confirmedOrders) {
             OffsetDateTime soldAt = order.getUpdatedAt();
+            if (soldAt == null) {
+                log.warn("Skip sales aggregation for orderId={} because updatedAt is null", order.getId());
+                continue;
+            }
             BigDecimal orderAmount = BigDecimal.ZERO;
             long orderItemQuantity = 0;
+            boolean hasValidLine = false;
 
             for (SalesOrderItem item : order.getItems()) {
+                if (item.getProduct() == null || item.getQuantity() == null || item.getUnitPrice() == null) {
+                    log.warn(
+                            "Skip broken sales line. orderId={}, itemId={}, productNull={}, quantityNull={}, unitPriceNull={}",
+                            order.getId(),
+                            item.getId(),
+                            item.getProduct() == null,
+                            item.getQuantity() == null,
+                            item.getUnitPrice() == null
+                    );
+                    continue;
+                }
+
                 BigDecimal lineAmount = item.getUnitPrice()
                         .multiply(BigDecimal.valueOf(item.getQuantity()));
                 orderAmount = orderAmount.add(lineAmount);
                 orderItemQuantity += item.getQuantity();
+                hasValidLine = true;
 
                 allLines.add(new SalesLineResponse(
                         order.getId(),
@@ -82,6 +105,9 @@ public class SalesReportService {
                         item.getUnitPrice(),
                         lineAmount
                 ));
+            }
+            if (!hasValidLine) {
+                continue;
             }
 
             totalSalesAmount = totalSalesAmount.add(orderAmount);
@@ -150,7 +176,19 @@ public class SalesReportService {
     }
 
     private List<SalesOrder> findConfirmedOrders(OffsetDateTime from, OffsetDateTime to) {
-        return salesOrderRepository.findDetailedByStatusAndUpdatedAtBetween(OrderStatus.CONFIRMED, from, to);
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new BadRequestException("from must be less than or equal to to");
+        }
+        if (from != null && to != null) {
+            return salesOrderRepository.findDetailedByStatusAndUpdatedAtBetween(OrderStatus.CONFIRMED, from, to);
+        }
+        if (from != null) {
+            return salesOrderRepository.findDetailedByStatusAndUpdatedAtFrom(OrderStatus.CONFIRMED, from);
+        }
+        if (to != null) {
+            return salesOrderRepository.findDetailedByStatusAndUpdatedAtTo(OrderStatus.CONFIRMED, to);
+        }
+        return salesOrderRepository.findDetailedByStatus(OrderStatus.CONFIRMED);
     }
 
     private OffsetDateTime toBucketStart(OffsetDateTime value, SalesGroupBy groupBy) {
@@ -179,4 +217,3 @@ public class SalesReportService {
         private long totalItemQuantity = 0;
     }
 }
-

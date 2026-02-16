@@ -1,10 +1,12 @@
 "use client";
 
-import { useAuth } from "@/components/auth-provider";
-import { createOrder, getProducts } from "@/lib/api";
-import type { Product } from "@/types/api";
+import { useAuth } from "@/features/auth";
+import { createOrder, getProductCategories, getProducts } from "@/lib/api";
+import { formatCategoryOptionLabel, resolveCategoryAndDescendantIds } from "@/features/category";
+import type { Product, ProductCategory } from "@/types/api";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useToast } from "@/features/feedback";
 
 type LineItem = {
   productId: string;
@@ -13,18 +15,32 @@ type LineItem = {
 
 export default function NewOrderPage() {
   const { state } = useAuth();
+  const { showError, showSuccess } = useToast();
   const router = useRouter();
   const credentials = state?.credentials;
 
   const [customerName, setCustomerName] = useState("");
   const [items, setItems] = useState<LineItem[]>([{ productId: "", quantity: "1" }]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const role = state?.user.role;
   // 受注入力はADMIN/OPERATORのみ許可する。
   const canOperate = role === "ADMIN" || role === "OPERATOR";
+  const activeCategories = useMemo(
+    () => categories.filter((category) => category.active),
+    [categories],
+  );
+  const filteredProducts = useMemo(() => {
+    if (!selectedCategoryId) {
+      return products;
+    }
+    const categoryIds = resolveCategoryAndDescendantIds(categories, Number(selectedCategoryId));
+    return products.filter((product) => product.categoryId != null && categoryIds.has(product.categoryId));
+  }, [products, categories, selectedCategoryId]);
 
   useEffect(() => {
     const currentCredentials = credentials;
@@ -35,14 +51,18 @@ export default function NewOrderPage() {
 
     async function loadProducts() {
       try {
-        // 明細選択用に商品一覧を取得する。
-        const data = await getProducts(currentCredentials!);
+        // 明細選択用に商品一覧とカテゴリ階層を取得する。
+        const [productData, categoryData] = await Promise.all([
+          getProducts(currentCredentials!),
+          getProductCategories(currentCredentials!),
+        ]);
         if (mounted) {
-          setProducts(data);
+          setProducts(productData);
+          setCategories(categoryData);
         }
       } catch (err) {
         if (mounted) {
-          setError(err instanceof Error ? err.message : "商品の取得に失敗しました。");
+          setError(err instanceof Error ? err.message : "商品/カテゴリの取得に失敗しました。");
         }
       }
     }
@@ -121,9 +141,12 @@ export default function NewOrderPage() {
         items: parsedItems,
       });
 
+      showSuccess("受注を作成しました。");
       router.replace(`/orders/${created.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "受注作成に失敗しました。");
+      const message = err instanceof Error ? err.message : "受注作成に失敗しました。";
+      setError(message);
+      showError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -156,6 +179,22 @@ export default function NewOrderPage() {
                 明細追加
               </button>
             </div>
+            <div className="field" style={{ marginBottom: 10 }}>
+              <label htmlFor="order-category-filter">カテゴリから選択</label>
+              <select
+                id="order-category-filter"
+                className="select"
+                value={selectedCategoryId}
+                onChange={(event) => setSelectedCategoryId(event.target.value)}
+              >
+                <option value="">すべての商品</option>
+                {activeCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {formatCategoryOptionLabel(category)}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div className="page" style={{ gap: 10 }}>
               {items.map((item, index) => (
@@ -170,7 +209,7 @@ export default function NewOrderPage() {
                       required
                     >
                       <option value="">選択してください</option>
-                      {products.map((product) => (
+                      {filteredProducts.map((product) => (
                         <option key={product.id} value={product.id}>
                           {product.sku} / {product.name}（在庫: {product.availableQuantity}）
                         </option>

@@ -29,8 +29,45 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
             select distinct so
             from SalesOrder so
             where so.status = :status
-              and (:from is null or so.updatedAt >= :from)
-              and (:to is null or so.updatedAt <= :to)
+            order by so.updatedAt desc, so.id desc
+            """)
+    List<SalesOrder> findDetailedByStatus(
+            @Param("status") OrderStatus status
+    );
+
+    @EntityGraph(attributePaths = {"items", "items.product"})
+    @Query("""
+            select distinct so
+            from SalesOrder so
+            where so.status = :status
+              and so.updatedAt >= :from
+            order by so.updatedAt desc, so.id desc
+            """)
+    List<SalesOrder> findDetailedByStatusAndUpdatedAtFrom(
+            @Param("status") OrderStatus status,
+            @Param("from") OffsetDateTime from
+    );
+
+    @EntityGraph(attributePaths = {"items", "items.product"})
+    @Query("""
+            select distinct so
+            from SalesOrder so
+            where so.status = :status
+              and so.updatedAt <= :to
+            order by so.updatedAt desc, so.id desc
+            """)
+    List<SalesOrder> findDetailedByStatusAndUpdatedAtTo(
+            @Param("status") OrderStatus status,
+            @Param("to") OffsetDateTime to
+    );
+
+    @EntityGraph(attributePaths = {"items", "items.product"})
+    @Query("""
+            select distinct so
+            from SalesOrder so
+            where so.status = :status
+              and so.updatedAt >= :from
+              and so.updatedAt <= :to
             order by so.updatedAt desc, so.id desc
             """)
     List<SalesOrder> findDetailedByStatusAndUpdatedAtBetween(

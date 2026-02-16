@@ -33,6 +33,10 @@ public class ProductCategory {
     @Column(name = "sku_sequence_digits", nullable = false)
     private Integer skuSequenceDigits = 4;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private ProductCategory parent;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -105,6 +109,14 @@ public class ProductCategory {
 
     public void setSkuSequenceDigits(Integer skuSequenceDigits) {
         this.skuSequenceDigits = skuSequenceDigits;
+    }
+
+    public ProductCategory getParent() {
+        return parent;
+    }
+
+    public void setParent(ProductCategory parent) {
+        this.parent = parent;
     }
 
     public OffsetDateTime getCreatedAt() {

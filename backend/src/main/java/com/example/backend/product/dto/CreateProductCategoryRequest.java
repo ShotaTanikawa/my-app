@@ -11,6 +11,7 @@ import jakarta.validation.constraints.Max;
 public record CreateProductCategoryRequest(
         @NotBlank @Size(max = 64) String code,
         @NotBlank @Size(max = 150) String name,
+        @Min(1) Long parentId,
         Boolean active,
         @Min(0) Integer sortOrder,
         @Size(max = 20) String skuPrefix,

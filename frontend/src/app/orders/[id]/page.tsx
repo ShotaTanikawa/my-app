@@ -1,14 +1,16 @@
 "use client";
 
-import { useAuth } from "@/components/auth-provider";
+import { useAuth } from "@/features/auth";
 import { cancelOrder, confirmOrder, getOrder } from "@/lib/api";
 import { formatCurrency, formatDateTime, formatSalesOrderStatus } from "@/lib/format";
 import type { SalesOrder } from "@/types/api";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useToast } from "@/features/feedback";
 
 export default function OrderDetailPage() {
   const { state } = useAuth();
+  const { showError, showSuccess } = useToast();
   const params = useParams<{ id: string }>();
   const router = useRouter();
 
@@ -86,8 +88,11 @@ export default function OrderDetailPage() {
       // RESERVED -> CONFIRMED の遷移を実行する。
       const updated = await confirmOrder(credentials!, order.id);
       setOrder(updated);
+      showSuccess("受注を確定しました。");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "確定に失敗しました。");
+      const message = err instanceof Error ? err.message : "確定に失敗しました。";
+      setError(message);
+      showError(message);
     } finally {
       setIsUpdating(false);
     }
@@ -105,8 +110,11 @@ export default function OrderDetailPage() {
       // RESERVED -> CANCELLED の遷移を実行する。
       const updated = await cancelOrder(credentials!, order.id);
       setOrder(updated);
+      showSuccess("受注をキャンセルしました。");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "キャンセルに失敗しました。");
+      const message = err instanceof Error ? err.message : "キャンセルに失敗しました。";
+      setError(message);
+      showError(message);
     } finally {
       setIsUpdating(false);
     }

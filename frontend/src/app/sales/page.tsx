@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/components/auth-provider";
+import { useAuth } from "@/features/auth";
 import { exportSalesCsv, getSalesReport } from "@/lib/api";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import type { SalesGroupBy, SalesReport } from "@/types/api";

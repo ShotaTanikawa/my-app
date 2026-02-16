@@ -1,5 +1,6 @@
 package com.example.backend.purchase;
 
+import com.example.backend.idempotency.IdempotencyService;
 import com.example.backend.purchase.dto.CreatePurchaseOrderRequest;
 import com.example.backend.purchase.dto.PurchaseOrderResponse;
 import com.example.backend.purchase.dto.PurchaseOrderReceiptResponse;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,9 +29,14 @@ import java.util.List;
 public class PurchaseOrderController {
 
     private final PurchaseOrderService purchaseOrderService;
+    private final IdempotencyService idempotencyService;
 
-    public PurchaseOrderController(PurchaseOrderService purchaseOrderService) {
+    public PurchaseOrderController(
+            PurchaseOrderService purchaseOrderService,
+            IdempotencyService idempotencyService
+    ) {
         this.purchaseOrderService = purchaseOrderService;
+        this.idempotencyService = idempotencyService;
     }
 
     @GetMapping
@@ -91,23 +98,51 @@ public class PurchaseOrderController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
-    public PurchaseOrderResponse createPurchaseOrder(@Valid @RequestBody CreatePurchaseOrderRequest request) {
-        return purchaseOrderService.createPurchaseOrder(request);
+    public PurchaseOrderResponse createPurchaseOrder(
+            @Valid @RequestBody CreatePurchaseOrderRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            Authentication authentication
+    ) {
+        return idempotencyService.execute(
+                resolveActor(authentication),
+                "purchase-orders.create",
+                idempotencyKey,
+                PurchaseOrderResponse.class,
+                () -> purchaseOrderService.createPurchaseOrder(request)
+        );
     }
 
     @PostMapping("/{purchaseOrderId}/receive")
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
     public PurchaseOrderResponse receivePurchaseOrder(
             @PathVariable Long purchaseOrderId,
-            @Valid @RequestBody(required = false) ReceivePurchaseOrderRequest request
+            @Valid @RequestBody(required = false) ReceivePurchaseOrderRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            Authentication authentication
     ) {
-        return purchaseOrderService.receivePurchaseOrder(purchaseOrderId, request);
+        return idempotencyService.execute(
+                resolveActor(authentication),
+                "purchase-orders." + purchaseOrderId + ".receive",
+                idempotencyKey,
+                PurchaseOrderResponse.class,
+                () -> purchaseOrderService.receivePurchaseOrder(purchaseOrderId, request)
+        );
     }
 
     @PostMapping("/{purchaseOrderId}/cancel")
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
-    public PurchaseOrderResponse cancelPurchaseOrder(@PathVariable Long purchaseOrderId) {
-        return purchaseOrderService.cancelPurchaseOrder(purchaseOrderId);
+    public PurchaseOrderResponse cancelPurchaseOrder(
+            @PathVariable Long purchaseOrderId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            Authentication authentication
+    ) {
+        return idempotencyService.execute(
+                resolveActor(authentication),
+                "purchase-orders." + purchaseOrderId + ".cancel",
+                idempotencyKey,
+                PurchaseOrderResponse.class,
+                () -> purchaseOrderService.cancelPurchaseOrder(purchaseOrderId)
+        );
     }
 
     private String toReceiptCsv(String purchaseOrderNumber, List<PurchaseOrderReceiptResponse> receipts) {
@@ -152,5 +187,12 @@ public class PurchaseOrderController {
             return "unknown";
         }
         return value.replaceAll("[^A-Za-z0-9._-]", "_");
+    }
+
+    private String resolveActor(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            return "anonymous";
+        }
+        return authentication.getName();
     }
 }

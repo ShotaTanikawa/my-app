@@ -32,9 +32,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -121,7 +123,8 @@ public class ProductService {
                 safeSize,
                 Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("id"))
         );
-        Specification<Product> specification = buildSearchSpecification(q, categoryId, lowStockOnly);
+        List<Long> categoryIds = resolveCategoryIdsForSearch(categoryId);
+        Specification<Product> specification = buildSearchSpecification(q, categoryIds, lowStockOnly);
         Page<Product> resultPage = productRepository.findAll(specification, pageable);
 
         List<ProductResponse> items = toResponses(resultPage.getContent());
@@ -341,7 +344,7 @@ public class ProductService {
         );
     }
 
-    private Specification<Product> buildSearchSpecification(String q, Long categoryId, Boolean lowStockOnly) {
+    private Specification<Product> buildSearchSpecification(String q, List<Long> categoryIds, Boolean lowStockOnly) {
         return (root, query, criteriaBuilder) -> {
             List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
 
@@ -353,8 +356,8 @@ public class ProductService {
                 ));
             }
 
-            if (categoryId != null) {
-                predicates.add(criteriaBuilder.equal(root.get("category").get("id"), categoryId));
+            if (categoryIds != null && !categoryIds.isEmpty()) {
+                predicates.add(root.get("category").get("id").in(categoryIds));
             }
 
             if (Boolean.TRUE.equals(lowStockOnly)) {
@@ -368,6 +371,30 @@ public class ProductService {
 
             return criteriaBuilder.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
+    }
+
+    private List<Long> resolveCategoryIdsForSearch(Long categoryId) {
+        if (categoryId == null) {
+            return List.of();
+        }
+
+        ProductCategory rootCategory = productCategoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + categoryId));
+
+        Set<Long> resolvedIds = new LinkedHashSet<>();
+        List<Long> frontier = List.of(rootCategory.getId());
+        while (!frontier.isEmpty()) {
+            for (Long id : frontier) {
+                resolvedIds.add(id);
+            }
+            List<ProductCategory> children = productCategoryRepository.findByParent_IdIn(frontier);
+            frontier = children.stream()
+                    .map(ProductCategory::getId)
+                    .filter(id -> !resolvedIds.contains(id))
+                    .toList();
+        }
+
+        return List.copyOf(resolvedIds);
     }
 
     private Integer normalizeReorderValue(Integer value) {

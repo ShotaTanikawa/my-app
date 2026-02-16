@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -313,6 +314,48 @@ class PurchaseOrderIntegrationTest {
                                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + viewerToken)
                 )
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void createPurchaseOrderSupportsIdempotencyKey() throws Exception {
+        String adminToken = login("admin", "admin123");
+        String operatorToken = login("operator", "operator123");
+        long productId = createProduct(adminToken, "PO-IDEMP-" + System.currentTimeMillis());
+        String idempotencyKey = "po-create-" + System.currentTimeMillis();
+
+        String payload = objectMapper.writeValueAsString(Map.of(
+                "supplierName", "Idempotency Supplier",
+                "items", List.of(Map.of(
+                        "productId", productId,
+                        "quantity", 9,
+                        "unitCost", 710
+                ))
+        ));
+
+        MvcResult first = mockMvc.perform(
+                        post("/api/purchase-orders")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
+                                .header("Idempotency-Key", idempotencyKey)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(payload)
+                )
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        MvcResult second = mockMvc.perform(
+                        post("/api/purchase-orders")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
+                                .header("Idempotency-Key", idempotencyKey)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(payload)
+                )
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        JsonNode firstBody = objectMapper.readTree(first.getResponse().getContentAsString());
+        JsonNode secondBody = objectMapper.readTree(second.getResponse().getContentAsString());
+        assertEquals(firstBody.path("id").asLong(), secondBody.path("id").asLong());
+        assertEquals(firstBody.path("orderNumber").asText(), secondBody.path("orderNumber").asText());
     }
 
     private long createProduct(String accessToken, String sku) throws Exception {

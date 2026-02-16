@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Manrope } from "next/font/google";
 import "./globals.css";
-import { AppShell } from "@/components/app-shell";
-import { AuthGuard } from "@/components/auth-guard";
-import { AuthProvider } from "@/components/auth-provider";
+import { AppShell } from "@/components/layout";
+import { AuthGuard, AuthProvider } from "@/features/auth";
+import { ToastProvider } from "@/features/feedback";
 
 // 見出し用フォントをCSS変数として登録する。
 const headingFont = Space_Grotesk({
@@ -32,11 +32,14 @@ export default function RootLayout({
       <body className={`${headingFont.variable} ${bodyFont.variable}`}>
         {/* 認証状態を配下に共有する。 */}
         <AuthProvider>
-          {/* 未認証時は画面遷移を制御する。 */}
-          <AuthGuard>
-            {/* ログイン画面以外の共通レイアウトを描画する。 */}
-            <AppShell>{children}</AppShell>
-          </AuthGuard>
+          {/* 画面遷移後も継続して通知表示できるよう、最上位で包む。 */}
+          <ToastProvider>
+            {/* 未認証時は画面遷移を制御する。 */}
+            <AuthGuard>
+              {/* ログイン画面以外の共通レイアウトを描画する。 */}
+              <AppShell>{children}</AppShell>
+            </AuthGuard>
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

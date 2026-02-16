@@ -1,10 +1,18 @@
 "use client";
 
-import { useAuth } from "@/components/auth-provider";
-import { createPurchaseOrder, getProducts, getReplenishmentSuggestions, getSuppliers } from "@/lib/api";
-import type { Product, ReplenishmentSuggestion, Supplier } from "@/types/api";
+import { useAuth } from "@/features/auth";
+import {
+  createPurchaseOrder,
+  getProductCategories,
+  getProducts,
+  getReplenishmentSuggestions,
+  getSuppliers,
+} from "@/lib/api";
+import { formatCategoryOptionLabel, resolveCategoryAndDescendantIds } from "@/features/category";
+import type { Product, ProductCategory, ReplenishmentSuggestion, Supplier } from "@/types/api";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useToast } from "@/features/feedback";
 
 type LineItem = {
   productId: string;
@@ -14,6 +22,7 @@ type LineItem = {
 
 export default function NewPurchaseOrderPage() {
   const { state } = useAuth();
+  const { showError, showSuccess } = useToast();
   const router = useRouter();
   const credentials = state?.credentials;
 
@@ -22,6 +31,8 @@ export default function NewPurchaseOrderPage() {
   const [note, setNote] = useState("");
   const [items, setItems] = useState<LineItem[]>([{ productId: "", quantity: "1", unitCost: "1" }]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [suggestions, setSuggestions] = useState<ReplenishmentSuggestion[]>([]);
   const [error, setError] = useState("");
@@ -37,6 +48,17 @@ export default function NewPurchaseOrderPage() {
     () => new Map(suppliers.map((supplier) => [String(supplier.id), supplier])),
     [suppliers],
   );
+  const activeCategories = useMemo(
+    () => categories.filter((category) => category.active),
+    [categories],
+  );
+  const filteredProducts = useMemo(() => {
+    if (!selectedCategoryId) {
+      return products;
+    }
+    const categoryIds = resolveCategoryAndDescendantIds(categories, Number(selectedCategoryId));
+    return products.filter((product) => product.categoryId != null && categoryIds.has(product.categoryId));
+  }, [products, categories, selectedCategoryId]);
 
   useEffect(() => {
     const currentCredentials = credentials;
@@ -48,10 +70,11 @@ export default function NewPurchaseOrderPage() {
     async function loadData() {
       try {
         // 発注入力に必要な商品マスタと補充提案を同時取得する。
-        const [productData, suggestionData, supplierData] = await Promise.all([
+        const [productData, suggestionData, supplierData, categoryData] = await Promise.all([
           getProducts(currentCredentials!),
           getReplenishmentSuggestions(currentCredentials!),
           getSuppliers(currentCredentials!),
+          getProductCategories(currentCredentials!),
         ]);
 
         if (!mounted) {
@@ -61,6 +84,7 @@ export default function NewPurchaseOrderPage() {
         setProducts(productData);
         setSuggestions(suggestionData);
         setSuppliers(supplierData);
+        setCategories(categoryData);
       } catch (err) {
         if (!mounted) {
           return;
@@ -127,7 +151,9 @@ export default function NewPurchaseOrderPage() {
       });
 
     if (suggestedItems.length === 0) {
-      setError("取り込める補充提案がありません。");
+      const message = "取り込める補充提案がありません。";
+      setError(message);
+      showError(message);
       return;
     }
 
@@ -190,9 +216,12 @@ export default function NewPurchaseOrderPage() {
         items: parsedItems,
       });
 
+      showSuccess("仕入発注を作成しました。");
       router.replace(`/purchase-orders/${created.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "仕入発注の作成に失敗しました。");
+      const message = err instanceof Error ? err.message : "仕入発注の作成に失敗しました。";
+      setError(message);
+      showError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -268,6 +297,22 @@ export default function NewPurchaseOrderPage() {
                 </button>
               </div>
             </div>
+            <div className="field" style={{ marginBottom: 10 }}>
+              <label htmlFor="purchase-order-category-filter">カテゴリから選択</label>
+              <select
+                id="purchase-order-category-filter"
+                className="select"
+                value={selectedCategoryId}
+                onChange={(event) => setSelectedCategoryId(event.target.value)}
+              >
+                <option value="">すべての商品</option>
+                {activeCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {formatCategoryOptionLabel(category)}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div className="page" style={{ gap: 10 }}>
               {items.map((item, index) => (
@@ -282,7 +327,7 @@ export default function NewPurchaseOrderPage() {
                       required
                     >
                       <option value="">選択してください</option>
-                      {products.map((product) => (
+                      {filteredProducts.map((product) => (
                         <option key={product.id} value={product.id}>
                           {product.sku} / {product.name}
                         </option>

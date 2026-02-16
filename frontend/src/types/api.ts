@@ -47,6 +47,11 @@ export type ProductCategory = {
   id: number;
   code: string;
   name: string;
+  parentId: number | null;
+  parentCode: string | null;
+  parentName: string | null;
+  depth: number;
+  pathName: string;
   active: boolean;
   sortOrder: number;
   skuPrefix: string | null;

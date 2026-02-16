@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/components/auth-provider";
+import { useAuth } from "@/features/auth";
 import { ApiClientError } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";

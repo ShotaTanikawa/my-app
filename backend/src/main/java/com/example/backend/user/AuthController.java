@@ -3,7 +3,10 @@ package com.example.backend.user;
 import com.example.backend.audit.AuditLogService;
 import com.example.backend.common.ResourceNotFoundException;
 import com.example.backend.security.JwtService;
+import com.example.backend.security.LoginAttemptService;
+import com.example.backend.security.PasswordResetService;
 import com.example.backend.security.RefreshTokenService;
+import com.example.backend.security.TotpService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -38,39 +41,56 @@ public class AuthController {
     private final AppUserRepository appUserRepository;
     private final RefreshTokenService refreshTokenService;
     private final AuditLogService auditLogService;
+    private final LoginAttemptService loginAttemptService;
+    private final TotpService totpService;
+    private final PasswordResetService passwordResetService;
 
     public AuthController(
             AuthenticationManager authenticationManager,
             JwtService jwtService,
             AppUserRepository appUserRepository,
             RefreshTokenService refreshTokenService,
-            AuditLogService auditLogService
+            AuditLogService auditLogService,
+            LoginAttemptService loginAttemptService,
+            TotpService totpService,
+            PasswordResetService passwordResetService
     ) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.appUserRepository = appUserRepository;
         this.refreshTokenService = refreshTokenService;
         this.auditLogService = auditLogService;
+        this.loginAttemptService = loginAttemptService;
+        this.totpService = totpService;
+        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
+        String clientIp = resolveClientIp(servletRequest);
+        loginAttemptService.checkAllowed(request.username(), clientIp);
+
         Authentication authentication;
         try {
             authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.username(), request.password())
             );
         } catch (AuthenticationException ex) {
+            loginAttemptService.recordFailure(request.username(), clientIp);
             throw new BadCredentialsException("Invalid username or password");
         }
 
-        String role = authentication.getAuthorities().stream()
-                .findFirst()
-                .map(grantedAuthority -> grantedAuthority.getAuthority().replace("ROLE_", ""))
-                .orElse("UNKNOWN");
-
         AppUser user = appUserRepository.findByUsername(authentication.getName())
                 .orElseThrow(() -> new BadCredentialsException("Invalid username or password"));
+        if (Boolean.TRUE.equals(user.getMfaEnabled())) {
+            if (!totpService.verifyCode(user.getMfaSecret(), request.mfaCode())) {
+                loginAttemptService.recordFailure(request.username(), clientIp);
+                throw new BadCredentialsException("MFA code is invalid or missing");
+            }
+        }
+        loginAttemptService.recordSuccess(request.username(), clientIp);
+
+        String role = user.getRole().name();
 
         String accessToken = jwtService.generateToken(authentication.getName(), role);
         String refreshToken = refreshTokenService.issueToken(user, resolveDeviceContext(servletRequest));
@@ -80,14 +100,14 @@ public class AuthController {
                 "AUTH_LOGIN",
                 "USER",
                 user.getId().toString(),
-                "login succeeded, ip=" + resolveClientIp(servletRequest)
+                "login succeeded, ip=" + clientIp
         );
         return new LoginResponse(
                 accessToken,
                 "Bearer",
                 jwtService.getExpirationSeconds(),
                 refreshToken,
-                new MeResponse(authentication.getName(), role)
+                new MeResponse(authentication.getName(), role, Boolean.TRUE.equals(user.getMfaEnabled()))
         );
     }
 
@@ -114,7 +134,7 @@ public class AuthController {
                 "Bearer",
                 jwtService.getExpirationSeconds(),
                 refreshToken,
-                new MeResponse(user.getUsername(), user.getRole().name())
+                new MeResponse(user.getUsername(), user.getRole().name(), Boolean.TRUE.equals(user.getMfaEnabled()))
         );
     }
 
@@ -135,12 +155,101 @@ public class AuthController {
     @GetMapping("/me")
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','VIEWER')")
     public MeResponse me(Authentication authentication) {
-        String role = authentication.getAuthorities().stream()
-                .findFirst()
-                .map(grantedAuthority -> grantedAuthority.getAuthority().replace("ROLE_", ""))
-                .orElse("UNKNOWN");
+        AppUser user = getAuthenticatedUser(authentication);
+        return new MeResponse(
+                user.getUsername(),
+                user.getRole().name(),
+                Boolean.TRUE.equals(user.getMfaEnabled())
+        );
+    }
 
-        return new MeResponse(authentication.getName(), role);
+    @PostMapping("/password-reset/request")
+    public PasswordResetRequestResponse requestPasswordReset(
+            @Valid @RequestBody PasswordResetRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        PasswordResetService.PasswordResetRequestResult result = passwordResetService.requestReset(
+                request.username(),
+                resolveClientIp(servletRequest)
+        );
+        return new PasswordResetRequestResponse(result.message(), result.resetToken());
+    }
+
+    @PostMapping("/password-reset/confirm")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void confirmPasswordReset(@Valid @RequestBody PasswordResetConfirmRequest request) {
+        passwordResetService.resetPassword(request.token(), request.newPassword());
+    }
+
+    @PostMapping("/mfa/setup")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','VIEWER')")
+    public MfaSetupResponse setupMfa(Authentication authentication) {
+        AppUser user = getAuthenticatedUser(authentication);
+
+        String secret = totpService.generateSecret();
+        user.setMfaSecret(secret);
+        user.setMfaEnabled(false);
+        appUserRepository.save(user);
+
+        auditLogService.logAs(
+                user.getUsername(),
+                user.getRole().name(),
+                "AUTH_MFA_SETUP",
+                "USER",
+                user.getId().toString(),
+                "mfa setup initialized"
+        );
+
+        return new MfaSetupResponse(secret, totpService.buildOtpAuthUri(user.getUsername(), secret));
+    }
+
+    @PostMapping("/mfa/enable")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','VIEWER')")
+    public MeResponse enableMfa(@Valid @RequestBody MfaCodeRequest request, Authentication authentication) {
+        AppUser user = getAuthenticatedUser(authentication);
+        if (user.getMfaSecret() == null || user.getMfaSecret().isBlank()) {
+            throw new BadCredentialsException("MFA setup is not initialized");
+        }
+        if (!totpService.verifyCode(user.getMfaSecret(), request.code())) {
+            throw new BadCredentialsException("Invalid MFA code");
+        }
+
+        user.setMfaEnabled(true);
+        appUserRepository.save(user);
+        auditLogService.logAs(
+                user.getUsername(),
+                user.getRole().name(),
+                "AUTH_MFA_ENABLE",
+                "USER",
+                user.getId().toString(),
+                "mfa enabled"
+        );
+
+        return new MeResponse(user.getUsername(), user.getRole().name(), true);
+    }
+
+    @PostMapping("/mfa/disable")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','VIEWER')")
+    public MeResponse disableMfa(@Valid @RequestBody MfaCodeRequest request, Authentication authentication) {
+        AppUser user = getAuthenticatedUser(authentication);
+        if (Boolean.TRUE.equals(user.getMfaEnabled())
+                && !totpService.verifyCode(user.getMfaSecret(), request.code())) {
+            throw new BadCredentialsException("Invalid MFA code");
+        }
+
+        user.setMfaEnabled(false);
+        user.setMfaSecret(null);
+        appUserRepository.save(user);
+        auditLogService.logAs(
+                user.getUsername(),
+                user.getRole().name(),
+                "AUTH_MFA_DISABLE",
+                "USER",
+                user.getId().toString(),
+                "mfa disabled"
+        );
+
+        return new MeResponse(user.getUsername(), user.getRole().name(), false);
     }
 
     @GetMapping("/sessions")
@@ -199,7 +308,7 @@ public class AuthController {
         return request.getRemoteAddr();
     }
 
-    public record MeResponse(String username, String role) {
+    public record MeResponse(String username, String role, boolean mfaEnabled) {
     }
 
     public record SessionResponse(
@@ -214,7 +323,8 @@ public class AuthController {
 
     public record LoginRequest(
             @NotBlank String username,
-            @NotBlank String password
+            @NotBlank String password,
+            String mfaCode
     ) {
     }
 
@@ -228,5 +338,23 @@ public class AuthController {
     }
 
     public record RefreshRequest(@NotBlank String refreshToken) {
+    }
+
+    public record PasswordResetRequest(@NotBlank String username) {
+    }
+
+    public record PasswordResetConfirmRequest(
+            @NotBlank String token,
+            @NotBlank String newPassword
+    ) {
+    }
+
+    public record PasswordResetRequestResponse(String message, String resetToken) {
+    }
+
+    public record MfaCodeRequest(@NotBlank String code) {
+    }
+
+    public record MfaSetupResponse(String secret, String otpauthUrl) {
     }
 }

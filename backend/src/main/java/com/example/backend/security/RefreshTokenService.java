@@ -124,6 +124,21 @@ public class RefreshTokenService {
         return true;
     }
 
+    @Transactional
+    public int revokeAllSessions(Long userId) {
+        List<RefreshToken> activeTokens = refreshTokenRepository.findByUserIdAndRevokedFalse(userId);
+        if (activeTokens.isEmpty()) {
+            return 0;
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        for (RefreshToken token : activeTokens) {
+            token.setRevoked(true);
+            token.setRevokedAt(now);
+        }
+        return activeTokens.size();
+    }
+
     private String issueToken(AppUser user, String sessionId, DeviceContext deviceContext) {
         String rawToken = generateRawToken();
 

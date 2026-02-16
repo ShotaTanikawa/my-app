@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/components/auth-provider";
+import { useAuth } from "@/features/auth";
 import {
   activateSupplier,
   createSupplier,
@@ -15,9 +15,11 @@ import {
 import { formatCurrency } from "@/lib/format";
 import type { Product, ProductSupplierContract, Supplier } from "@/types/api";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useToast } from "@/features/feedback";
 
 export default function SuppliersPage() {
   const { state } = useAuth();
+  const { showError, showSuccess } = useToast();
   const credentials = state?.credentials;
   const role = state?.user.role;
   const canManage = role === "ADMIN";
@@ -28,6 +30,7 @@ export default function SuppliersPage() {
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -178,6 +181,7 @@ export default function SuppliersPage() {
     event.preventDefault();
     setError("");
     setSuccess("");
+    setIsMutating(true);
 
     try {
       await createSupplier(credentials!, {
@@ -196,10 +200,16 @@ export default function SuppliersPage() {
         phone: "",
         note: "",
       });
-      setSuccess("仕入先を作成しました。");
+      const message = "仕入先を作成しました。";
+      setSuccess(message);
+      showSuccess(message);
       await refreshSuppliers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "仕入先作成に失敗しました。");
+      const message = err instanceof Error ? err.message : "仕入先作成に失敗しました。";
+      setError(message);
+      showError(message);
+    } finally {
+      setIsMutating(false);
     }
   }
 
@@ -210,6 +220,7 @@ export default function SuppliersPage() {
     }
     setError("");
     setSuccess("");
+    setIsMutating(true);
 
     try {
       await updateSupplier(credentials!, selectedSupplierId, {
@@ -220,16 +231,23 @@ export default function SuppliersPage() {
         phone: editForm.phone.trim() || undefined,
         note: editForm.note.trim() || undefined,
       });
-      setSuccess("仕入先を更新しました。");
+      const message = "仕入先を更新しました。";
+      setSuccess(message);
+      showSuccess(message);
       await refreshSuppliers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "仕入先更新に失敗しました。");
+      const message = err instanceof Error ? err.message : "仕入先更新に失敗しました。";
+      setError(message);
+      showError(message);
+    } finally {
+      setIsMutating(false);
     }
   }
 
   async function handleToggleSupplierActive(supplier: Supplier) {
     setError("");
     setSuccess("");
+    setIsMutating(true);
 
     try {
       if (supplier.active) {
@@ -237,28 +255,39 @@ export default function SuppliersPage() {
       } else {
         await activateSupplier(credentials!, supplier.id);
       }
-      setSuccess("仕入先の状態を更新しました。");
+      const message = "仕入先の状態を更新しました。";
+      setSuccess(message);
+      showSuccess(message);
       await refreshSuppliers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "仕入先状態の更新に失敗しました。");
+      const message = err instanceof Error ? err.message : "仕入先状態の更新に失敗しました。";
+      setError(message);
+      showError(message);
+    } finally {
+      setIsMutating(false);
     }
   }
 
   async function handleUpsertContract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedProductId) {
-      setError("商品を選択してください。");
+      const message = "商品を選択してください。";
+      setError(message);
+      showError(message);
       return;
     }
 
     const supplierId = Number(contractForm.supplierId);
     if (!supplierId) {
-      setError("仕入先を選択してください。");
+      const message = "仕入先を選択してください。";
+      setError(message);
+      showError(message);
       return;
     }
 
     setError("");
     setSuccess("");
+    setIsMutating(true);
 
     try {
       await upsertProductSupplier(credentials!, selectedProductId, {
@@ -277,10 +306,16 @@ export default function SuppliersPage() {
         lotSize: "1",
         primary: false,
       });
-      setSuccess("契約条件を保存しました。");
+      const message = "契約条件を保存しました。";
+      setSuccess(message);
+      showSuccess(message);
       await refreshContracts();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "契約条件の保存に失敗しました。");
+      const message = err instanceof Error ? err.message : "契約条件の保存に失敗しました。";
+      setError(message);
+      showError(message);
+    } finally {
+      setIsMutating(false);
     }
   }
 
@@ -291,12 +326,19 @@ export default function SuppliersPage() {
 
     setError("");
     setSuccess("");
+    setIsMutating(true);
     try {
       await removeProductSupplier(credentials!, selectedProductId, supplierId);
-      setSuccess("契約条件を削除しました。");
+      const message = "契約条件を削除しました。";
+      setSuccess(message);
+      showSuccess(message);
       await refreshContracts();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "契約条件の削除に失敗しました。");
+      const message = err instanceof Error ? err.message : "契約条件の削除に失敗しました。";
+      setError(message);
+      showError(message);
+    } finally {
+      setIsMutating(false);
     }
   }
 
@@ -353,6 +395,7 @@ export default function SuppliersPage() {
                         className="button secondary"
                         type="button"
                         onClick={() => setSelectedSupplierId(supplier.id)}
+                        disabled={isMutating}
                       >
                         選択
                       </button>
@@ -361,6 +404,7 @@ export default function SuppliersPage() {
                           className="button secondary"
                           type="button"
                           onClick={() => handleToggleSupplierActive(supplier)}
+                          disabled={isMutating}
                         >
                           {supplier.active ? "無効化" : "有効化"}
                         </button>
@@ -441,7 +485,7 @@ export default function SuppliersPage() {
                 />
               </div>
               <div className="button-row">
-                <button className="button primary" type="submit">
+                <button className="button primary" type="submit" disabled={isMutating}>
                   作成
                 </button>
               </div>
@@ -510,7 +554,7 @@ export default function SuppliersPage() {
                   />
                 </div>
                 <div className="button-row">
-                  <button className="button primary" type="submit">
+                  <button className="button primary" type="submit" disabled={isMutating}>
                     更新
                   </button>
                 </div>
@@ -576,6 +620,7 @@ export default function SuppliersPage() {
                           className="button danger"
                           type="button"
                           onClick={() => handleRemoveContract(contract.supplierId)}
+                          disabled={isMutating}
                         >
                           削除
                         </button>
@@ -683,7 +728,7 @@ export default function SuppliersPage() {
               </div>
             </div>
             <div className="button-row">
-              <button className="button primary" type="submit">
+              <button className="button primary" type="submit" disabled={isMutating}>
                 契約条件を保存
               </button>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/components/auth-provider";
+import { useAuth } from "@/features/auth";
 import { getOrders, getProducts, getPurchaseOrders } from "@/lib/api";
 import { formatDateTime, formatSalesOrderStatus } from "@/lib/format";
 import type { PurchaseOrder, SalesOrder } from "@/types/api";

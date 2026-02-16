@@ -156,6 +156,7 @@ export async function createProductCategory(
   body: {
     code: string;
     name: string;
+    parentId?: number;
     active?: boolean;
     sortOrder?: number;
     skuPrefix?: string;

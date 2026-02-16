@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/components/auth-provider";
+import { useAuth } from "@/features/auth";
 import {
   cancelPurchaseOrder,
   exportPurchaseOrderReceiptsCsv,
@@ -12,6 +12,7 @@ import { formatCurrency, formatDateTime, formatPurchaseOrderStatus } from "@/lib
 import type { PurchaseOrder, PurchaseOrderReceipt } from "@/types/api";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useToast } from "@/features/feedback";
 
 type ReceiptFilterState = {
   receivedBy: string;
@@ -53,6 +54,7 @@ function toReceiptQuery(filters: ReceiptFilterState): {
 
 export default function PurchaseOrderDetailPage() {
   const { state } = useAuth();
+  const { showError, showInfo, showSuccess } = useToast();
   const params = useParams<{ id: string }>();
   const router = useRouter();
 
@@ -159,13 +161,17 @@ export default function PurchaseOrderDetailPage() {
       .filter((item) => Number.isFinite(item.quantity) && item.quantity > 0);
 
     if (receiveItems.length === 0) {
-      setError("今回入荷数を1件以上入力してください。");
+      const message = "今回入荷数を1件以上入力してください。";
+      setError(message);
+      showError(message);
       return;
     }
 
     const invalidItem = receiveItems.find((item) => item.quantity > item.remainingQuantity);
     if (invalidItem) {
-      setError("今回入荷数が未入荷数を超えています。");
+      const message = "今回入荷数が未入荷数を超えています。";
+      setError(message);
+      showError(message);
       return;
     }
 
@@ -181,8 +187,11 @@ export default function PurchaseOrderDetailPage() {
       setPurchaseOrder(updated);
       setReceiveInputs(toDefaultReceiveInputs(updated));
       setReloadKey((prev) => prev + 1);
+      showSuccess("入荷を登録しました。");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "入荷処理に失敗しました。");
+      const message = err instanceof Error ? err.message : "入荷処理に失敗しました。";
+      setError(message);
+      showError(message);
     } finally {
       setIsUpdating(false);
     }
@@ -200,8 +209,11 @@ export default function PurchaseOrderDetailPage() {
       setPurchaseOrder(updated);
       setReceiveInputs(toDefaultReceiveInputs(updated));
       setReloadKey((prev) => prev + 1);
+      showSuccess("発注をキャンセルしました。");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "発注キャンセルに失敗しました。");
+      const message = err instanceof Error ? err.message : "発注キャンセルに失敗しました。";
+      setError(message);
+      showError(message);
     } finally {
       setIsUpdating(false);
     }
@@ -246,8 +258,11 @@ export default function PurchaseOrderDetailPage() {
       anchor.click();
       anchor.remove();
       window.URL.revokeObjectURL(url);
+      showInfo("入荷履歴CSVを出力しました。");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "入荷履歴CSVの出力に失敗しました。");
+      const message = err instanceof Error ? err.message : "入荷履歴CSVの出力に失敗しました。";
+      setError(message);
+      showError(message);
     } finally {
       setIsExportingCsv(false);
     }

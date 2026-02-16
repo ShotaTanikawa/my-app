@@ -76,7 +76,7 @@ class ProductImportIntegrationTest {
                 .andExpect(jsonPath("$.updatedRows").value(1))
                 .andExpect(jsonPath("$.failedRows").value(0));
 
-        Product updatedProduct = productRepository.findBySku(existingSku).orElseThrow();
+        Product updatedProduct = productRepository.findWithCategoryBySku(existingSku).orElseThrow();
         assertThat(updatedProduct.getName()).isEqualTo("更新後商品");
         assertThat(updatedProduct.getDescription()).isEqualTo("updated by csv");
         assertThat(updatedProduct.getUnitPrice()).isEqualByComparingTo("1500");
@@ -86,7 +86,7 @@ class ProductImportIntegrationTest {
         Inventory updatedInventory = inventoryRepository.findByProductId(existingProductId).orElseThrow();
         assertThat(updatedInventory.getAvailableQuantity()).isEqualTo(12);
 
-        Product createdProduct = productRepository.findBySku(newSku).orElseThrow();
+        Product createdProduct = productRepository.findWithCategoryBySku(newSku).orElseThrow();
         assertThat(createdProduct.getName()).isEqualTo("新規商品");
         assertThat(createdProduct.getDescription()).isEqualTo("new by csv");
         assertThat(createdProduct.getCategory()).isNotNull();

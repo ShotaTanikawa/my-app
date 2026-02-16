@@ -46,6 +46,10 @@ public class PurchaseOrder {
     @Column(name = "received_at")
     private OffsetDateTime receivedAt;
 
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @OneToMany(mappedBy = "purchaseOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PurchaseOrderItem> items = new ArrayList<>();
 
@@ -136,6 +140,10 @@ public class PurchaseOrder {
 
     public void setReceivedAt(OffsetDateTime receivedAt) {
         this.receivedAt = receivedAt;
+    }
+
+    public Long getVersion() {
+        return version;
     }
 
     public List<PurchaseOrderItem> getItems() {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/components/auth-provider";
+import { useAuth } from "@/features/auth";
 import { formatUserRole } from "@/lib/format";
 import Link from "next/link";
 import { usePathname } from "next/navigation";

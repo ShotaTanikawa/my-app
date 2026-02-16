@@ -310,6 +310,12 @@ textarea {
   cursor: pointer;
 }
 
+.button:disabled,
+.ghost-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .button.primary {
   background: var(--primary);
   color: #fff;
@@ -385,6 +391,54 @@ textarea {
   margin-top: 4px;
   color: var(--danger);
   font-size: 0.87rem;
+}
+
+.toast-region {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 9999;
+  display: grid;
+  gap: 8px;
+  width: min(420px, calc(100vw - 32px));
+}
+
+.toast-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 10px 24px rgba(17, 24, 39, 0.16);
+  border: 1px solid transparent;
+  background: #fff;
+  color: #1f2937;
+}
+
+.toast-item.success {
+  border-color: #bfeacb;
+  background: #ecfaf1;
+}
+
+.toast-item.error {
+  border-color: #f5c5c5;
+  background: #fff1f1;
+}
+
+.toast-item.info {
+  border-color: #b7ddf5;
+  background: #eef7fd;
+}
+
+.toast-close {
+  border: 0;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 2px;
 }
 
 /* ログインや遷移時に使う単純メッセージ領域。 */
@@ -478,5 +532,11 @@ textarea {
 
   .content {
     padding: 14px;
+  }
+
+  .toast-region {
+    top: 12px;
+    right: 12px;
+    width: calc(100vw - 24px);
   }
 }

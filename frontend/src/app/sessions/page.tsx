@@ -1,13 +1,15 @@
 "use client";
 
-import { useAuth } from "@/components/auth-provider";
+import { useAuth } from "@/features/auth";
 import { getSessions, revokeSession } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import type { AuthSession } from "@/types/api";
 import { useCallback, useEffect, useState } from "react";
+import { useToast } from "@/features/feedback";
 
 export default function SessionsPage() {
   const { state } = useAuth();
+  const { showError, showSuccess } = useToast();
   const credentials = state?.credentials;
 
   const [sessions, setSessions] = useState<AuthSession[]>([]);
@@ -56,10 +58,14 @@ export default function SessionsPage() {
 
     try {
       await revokeSession(currentCredentials, sessionId);
-      setSuccess("セッションを失効しました。");
+      const message = "セッションを失効しました。";
+      setSuccess(message);
+      showSuccess(message);
       await loadSessions();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "セッション失効に失敗しました。");
+      const message = err instanceof Error ? err.message : "セッション失効に失敗しました。";
+      setError(message);
+      showError(message);
     } finally {
       setRevokingSessionId("");
     }
