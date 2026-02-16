@@ -43,6 +43,8 @@ public class ProductService {
         product.setName(request.name());
         product.setDescription(request.description());
         product.setUnitPrice(request.unitPrice());
+        product.setReorderPoint(normalizeReorderValue(request.reorderPoint()));
+        product.setReorderQuantity(normalizeReorderValue(request.reorderQuantity()));
         Product savedProduct = productRepository.save(product);
 
         // 商品作成時に在庫レコードを1件同時作成し、1商品1在庫を保証する。
@@ -87,6 +89,12 @@ public class ProductService {
         product.setName(request.name());
         product.setDescription(request.description());
         product.setUnitPrice(request.unitPrice());
+        product.setReorderPoint(request.reorderPoint() == null
+                ? product.getReorderPoint()
+                : normalizeReorderValue(request.reorderPoint()));
+        product.setReorderQuantity(request.reorderQuantity() == null
+                ? product.getReorderQuantity()
+                : normalizeReorderValue(request.reorderQuantity()));
 
         Product updatedProduct = productRepository.save(product);
         Inventory inventory = inventoryRepository.findByProductId(productId)
@@ -133,8 +141,17 @@ public class ProductService {
                 product.getName(),
                 product.getDescription(),
                 product.getUnitPrice(),
+                normalizeReorderValue(product.getReorderPoint()),
+                normalizeReorderValue(product.getReorderQuantity()),
                 inventory == null ? 0 : inventory.getAvailableQuantity(),
                 inventory == null ? 0 : inventory.getReservedQuantity()
         );
+    }
+
+    private Integer normalizeReorderValue(Integer value) {
+        if (value == null || value < 0) {
+            return 0;
+        }
+        return value;
     }
 }

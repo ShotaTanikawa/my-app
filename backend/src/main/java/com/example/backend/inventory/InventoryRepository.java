@@ -22,4 +22,7 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
 
     @Query("select i from Inventory i join fetch i.product p where i.availableQuantity <= :threshold order by i.availableQuantity asc")
     List<Inventory> findLowStockInventories(@Param("threshold") Integer threshold);
+
+    @Query("select i from Inventory i join fetch i.product p order by i.availableQuantity asc")
+    List<Inventory> findAllWithProduct();
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import { useAuth } from "@/components/auth-provider";
-import { getOrders, getProducts } from "@/lib/api";
+import { getOrders, getProducts, getPurchaseOrders } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
-import type { SalesOrder } from "@/types/api";
+import type { PurchaseOrder, SalesOrder } from "@/types/api";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -15,6 +15,7 @@ export default function DashboardPage() {
   const credentials = state?.credentials;
 
   const [orders, setOrders] = useState<SalesOrder[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [productCount, setProductCount] = useState(0);
   const [lowStockCount, setLowStockCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -33,9 +34,10 @@ export default function DashboardPage() {
 
       try {
         // ダッシュボードの指標をまとめて取得し、待ち時間を短縮する。
-        const [products, allOrders] = await Promise.all([
+        const [products, allOrders, allPurchaseOrders] = await Promise.all([
           getProducts(currentCredentials!),
           getOrders(currentCredentials!),
+          getPurchaseOrders(currentCredentials!),
         ]);
 
         if (!mounted) {
@@ -45,6 +47,7 @@ export default function DashboardPage() {
         setProductCount(products.length);
         setLowStockCount(products.filter((item) => item.availableQuantity <= LOW_STOCK_THRESHOLD).length);
         setOrders(allOrders.slice(0, 5));
+        setPurchaseOrders(allPurchaseOrders);
       } catch (err) {
         if (!mounted) {
           return;
@@ -71,6 +74,10 @@ export default function DashboardPage() {
     () => orders.filter((order) => order.status === "RESERVED").length,
     [orders],
   );
+  const orderedPurchaseCount = useMemo(
+    () => purchaseOrders.filter((order) => order.status === "ORDERED").length,
+    [purchaseOrders],
+  );
 
   if (!state || !credentials) {
     return null;
@@ -78,7 +85,7 @@ export default function DashboardPage() {
 
   return (
     <div className="page">
-      <div className="grid cols-4">
+      <div className="grid cols-5">
         <section className="card">
           <div className="stat-label">Products</div>
           <div className="stat-value">{loading ? "..." : productCount}</div>
@@ -94,6 +101,10 @@ export default function DashboardPage() {
         <section className="card">
           <div className="stat-label">Low Stock (≤ {LOW_STOCK_THRESHOLD})</div>
           <div className="stat-value">{loading ? "..." : lowStockCount}</div>
+        </section>
+        <section className="card">
+          <div className="stat-label">Purchase Ordered</div>
+          <div className="stat-value">{loading ? "..." : orderedPurchaseCount}</div>
         </section>
       </div>
 

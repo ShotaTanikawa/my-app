@@ -33,6 +33,8 @@ export type Product = {
   name: string;
   description: string | null;
   unitPrice: number;
+  reorderPoint: number;
+  reorderQuantity: number;
   availableQuantity: number;
   reservedQuantity: number;
 };
@@ -54,6 +56,40 @@ export type SalesOrder = {
   status: "RESERVED" | "CONFIRMED" | "CANCELLED";
   createdAt: string;
   items: SalesOrderItem[];
+};
+
+// 仕入発注明細1行分。
+export type PurchaseOrderItem = {
+  productId: number;
+  sku: string;
+  productName: string;
+  quantity: number;
+  unitCost: number;
+};
+
+// 仕入発注ヘッダと明細の集約モデル。
+export type PurchaseOrder = {
+  id: number;
+  orderNumber: string;
+  supplierName: string;
+  note: string | null;
+  status: "ORDERED" | "RECEIVED" | "CANCELLED";
+  createdAt: string;
+  receivedAt: string | null;
+  items: PurchaseOrderItem[];
+};
+
+// 補充提案1件分。
+export type ReplenishmentSuggestion = {
+  productId: number;
+  sku: string;
+  productName: string;
+  availableQuantity: number;
+  reservedQuantity: number;
+  reorderPoint: number;
+  reorderQuantity: number;
+  shortageQuantity: number;
+  suggestedQuantity: number;
 };
 
 // 監査ログ1件分。

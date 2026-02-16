@@ -176,6 +176,10 @@ textarea {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.grid.cols-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .grid.cols-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -320,6 +324,18 @@ textarea {
   border-color: #bfeacb;
 }
 
+.badge.ORDERED {
+  background: #fff3d7;
+  color: var(--warning);
+  border-color: #f7d8a1;
+}
+
+.badge.RECEIVED {
+  background: #def7e8;
+  color: var(--success);
+  border-color: #bfeacb;
+}
+
 .badge.CANCELLED {
   background: #fde8e8;
   color: var(--danger);
@@ -368,7 +384,8 @@ textarea {
 
 /* レスポンシブ時のカラム崩し。 */
 @media (max-width: 1024px) {
-  .grid.cols-4 {
+  .grid.cols-4,
+  .grid.cols-5 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -388,7 +405,8 @@ textarea {
   }
 
   .grid.cols-2,
-  .grid.cols-4 {
+  .grid.cols-4,
+  .grid.cols-5 {
     grid-template-columns: minmax(0, 1fr);
   }
 

@@ -7,6 +7,8 @@ import type {
   LoginResponse,
   MeResponse,
   Product,
+  PurchaseOrder,
+  ReplenishmentSuggestion,
   SalesOrder,
 } from "@/types/api";
 
@@ -120,6 +122,8 @@ export async function createProduct(
     name: string;
     description?: string;
     unitPrice: number;
+    reorderPoint: number;
+    reorderQuantity: number;
   },
 ): Promise<Product> {
   return request<Product>("/api/products", { method: "POST", credentials, body });
@@ -132,6 +136,8 @@ export async function updateProduct(
     name: string;
     description?: string;
     unitPrice: number;
+    reorderPoint: number;
+    reorderQuantity: number;
   },
 ): Promise<Product> {
   return request<Product>(`/api/products/${productId}`, { method: "PUT", credentials, body });
@@ -176,6 +182,55 @@ export async function confirmOrder(credentials: Credentials, orderId: number): P
 
 export async function cancelOrder(credentials: Credentials, orderId: number): Promise<SalesOrder> {
   return request<SalesOrder>(`/api/orders/${orderId}/cancel`, {
+    method: "POST",
+    credentials,
+  });
+}
+
+export async function getPurchaseOrders(credentials: Credentials): Promise<PurchaseOrder[]> {
+  return request<PurchaseOrder[]>("/api/purchase-orders", { credentials });
+}
+
+export async function getPurchaseOrder(credentials: Credentials, purchaseOrderId: number): Promise<PurchaseOrder> {
+  return request<PurchaseOrder>(`/api/purchase-orders/${purchaseOrderId}`, { credentials });
+}
+
+export async function getReplenishmentSuggestions(
+  credentials: Credentials,
+): Promise<ReplenishmentSuggestion[]> {
+  return request<ReplenishmentSuggestion[]>("/api/purchase-orders/suggestions", { credentials });
+}
+
+export async function createPurchaseOrder(
+  credentials: Credentials,
+  body: {
+    supplierName: string;
+    note?: string;
+    items: Array<{ productId: number; quantity: number; unitCost: number }>;
+  },
+): Promise<PurchaseOrder> {
+  return request<PurchaseOrder>("/api/purchase-orders", {
+    method: "POST",
+    credentials,
+    body,
+  });
+}
+
+export async function receivePurchaseOrder(
+  credentials: Credentials,
+  purchaseOrderId: number,
+): Promise<PurchaseOrder> {
+  return request<PurchaseOrder>(`/api/purchase-orders/${purchaseOrderId}/receive`, {
+    method: "POST",
+    credentials,
+  });
+}
+
+export async function cancelPurchaseOrder(
+  credentials: Credentials,
+  purchaseOrderId: number,
+): Promise<PurchaseOrder> {
+  return request<PurchaseOrder>(`/api/purchase-orders/${purchaseOrderId}/cancel`, {
     method: "POST",
     credentials,
   });

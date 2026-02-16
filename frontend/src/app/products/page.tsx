@@ -28,12 +28,16 @@ export default function ProductsPage() {
     name: "",
     description: "",
     unitPrice: "",
+    reorderPoint: "0",
+    reorderQuantity: "0",
   });
 
   const [editForm, setEditForm] = useState({
     name: "",
     description: "",
     unitPrice: "",
+    reorderPoint: "0",
+    reorderQuantity: "0",
   });
 
   const role = state?.user.role;
@@ -86,7 +90,7 @@ export default function ProductsPage() {
 
   useEffect(() => {
     if (!selectedProduct) {
-      setEditForm({ name: "", description: "", unitPrice: "" });
+      setEditForm({ name: "", description: "", unitPrice: "", reorderPoint: "0", reorderQuantity: "0" });
       return;
     }
 
@@ -94,6 +98,8 @@ export default function ProductsPage() {
       name: selectedProduct.name,
       description: selectedProduct.description ?? "",
       unitPrice: String(selectedProduct.unitPrice),
+      reorderPoint: String(selectedProduct.reorderPoint),
+      reorderQuantity: String(selectedProduct.reorderQuantity),
     });
   }, [selectedProduct]);
 
@@ -119,8 +125,17 @@ export default function ProductsPage() {
         name: createForm.name.trim(),
         description: createForm.description.trim() || undefined,
         unitPrice: Number(createForm.unitPrice),
+        reorderPoint: Number(createForm.reorderPoint || "0"),
+        reorderQuantity: Number(createForm.reorderQuantity || "0"),
       });
-      setCreateForm({ sku: "", name: "", description: "", unitPrice: "" });
+      setCreateForm({
+        sku: "",
+        name: "",
+        description: "",
+        unitPrice: "",
+        reorderPoint: "0",
+        reorderQuantity: "0",
+      });
       setSuccess("商品を作成しました。");
       await refreshProducts();
     } catch (err) {
@@ -142,6 +157,8 @@ export default function ProductsPage() {
         name: editForm.name.trim(),
         description: editForm.description.trim() || undefined,
         unitPrice: Number(editForm.unitPrice),
+        reorderPoint: Number(editForm.reorderPoint || "0"),
+        reorderQuantity: Number(editForm.reorderQuantity || "0"),
       });
       setSuccess("商品を更新しました。");
       await refreshProducts();
@@ -184,6 +201,8 @@ export default function ProductsPage() {
                 <th>SKU</th>
                 <th>商品名</th>
                 <th>単価</th>
+                <th>再発注点</th>
+                <th>発注ロット</th>
                 <th>販売可能</th>
                 <th>引当済</th>
                 <th>操作</th>
@@ -195,6 +214,8 @@ export default function ProductsPage() {
                   <td>{product.sku}</td>
                   <td>{product.name}</td>
                   <td>{formatCurrency(product.unitPrice)}</td>
+                  <td>{product.reorderPoint}</td>
+                  <td>{product.reorderQuantity}</td>
                   <td>{product.availableQuantity}</td>
                   <td>{product.reservedQuantity}</td>
                   <td>
@@ -210,7 +231,7 @@ export default function ProductsPage() {
               ))}
               {!loading && products.length === 0 && (
                 <tr>
-                  <td colSpan={6}>商品がありません。</td>
+                  <td colSpan={8}>商品がありません。</td>
                 </tr>
               )}
             </tbody>
@@ -254,6 +275,36 @@ export default function ProductsPage() {
                   value={createForm.unitPrice}
                   onChange={(event) =>
                     setCreateForm((prev) => ({ ...prev, unitPrice: event.target.value }))
+                  }
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="create-reorder-point">再発注点</label>
+                <input
+                  id="create-reorder-point"
+                  className="input"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={createForm.reorderPoint}
+                  onChange={(event) =>
+                    setCreateForm((prev) => ({ ...prev, reorderPoint: event.target.value }))
+                  }
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="create-reorder-quantity">発注ロット</label>
+                <input
+                  id="create-reorder-quantity"
+                  className="input"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={createForm.reorderQuantity}
+                  onChange={(event) =>
+                    setCreateForm((prev) => ({ ...prev, reorderQuantity: event.target.value }))
                   }
                   required
                 />
@@ -313,6 +364,36 @@ export default function ProductsPage() {
                       value={editForm.unitPrice}
                       onChange={(event) =>
                         setEditForm((prev) => ({ ...prev, unitPrice: event.target.value }))
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="edit-reorder-point">再発注点</label>
+                    <input
+                      id="edit-reorder-point"
+                      className="input"
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={editForm.reorderPoint}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({ ...prev, reorderPoint: event.target.value }))
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="edit-reorder-quantity">発注ロット</label>
+                    <input
+                      id="edit-reorder-quantity"
+                      className="input"
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={editForm.reorderQuantity}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({ ...prev, reorderQuantity: event.target.value }))
                       }
                       required
                     />

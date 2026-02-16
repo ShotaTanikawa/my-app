@@ -13,6 +13,9 @@
 - UI-005: 受注作成
 - UI-006: 受注詳細
 - UI-007: 監査ログ
+- UI-008: 仕入発注一覧 + 補充提案
+- UI-009: 仕入発注作成
+- UI-010: 仕入発注詳細
 
 ## 2. ナビゲーション
 
@@ -20,6 +23,7 @@
   - ダッシュボード
   - セッション
   - 商品
+  - 仕入発注
   - 受注
   - 監査ログ（ADMINのみ）
 - ヘッダー:
@@ -85,6 +89,8 @@ API:
 - SKU
 - 商品名
 - 単価
+- 再発注点
+- 発注ロット
 - 在庫（販売可能）
 - 在庫（引当済）
 - 操作ボタン（ロールにより出し分け）
@@ -101,6 +107,57 @@ API:
 - `POST /api/products`（ADMIN）
 - `PUT /api/products/{productId}`（ADMIN）
 - `POST /api/products/{productId}/stock`（ADMIN/OPERATOR）
+
+## 3.8 UI-008 仕入発注一覧 + 補充提案
+
+表示項目:
+
+- 発注番号
+- 仕入先
+- ステータス
+- 作成日時
+- 入荷日時
+- 明細数
+- 補充提案テーブル（SKU、在庫、再発注点、推奨数）
+
+API:
+
+- `GET /api/purchase-orders`
+- `GET /api/purchase-orders/suggestions`
+
+## 3.9 UI-009 仕入発注作成
+
+表示項目:
+
+- 仕入先名
+- 備考
+- 明細行（商品、数量、仕入単価）
+- 補充提案取り込みボタン
+
+API:
+
+- `POST /api/purchase-orders`
+
+## 3.10 UI-010 仕入発注詳細
+
+表示項目:
+
+- 発注ヘッダー情報（番号、仕入先、ステータス、日時）
+- 明細一覧
+- 総発注額
+- 入荷処理ボタン
+- キャンセルボタン
+
+操作制御:
+
+- `ORDERED` のときのみ入荷/キャンセルボタン表示
+- `RECEIVED` / `CANCELLED` は参照のみ
+
+API:
+
+- `GET /api/purchase-orders/{purchaseOrderId}`
+- `POST /api/purchase-orders/{purchaseOrderId}/receive`
+- `POST /api/purchase-orders/{purchaseOrderId}/cancel`
 
 ## 3.4 UI-004 受注一覧
 
@@ -182,13 +239,15 @@ API:
   - 監査ログ閲覧可
   - 商品作成/編集可
   - 在庫追加可
+  - 仕入発注作成/入荷/キャンセル可
   - 受注作成/確定/キャンセル可
 - OPERATOR:
   - 商品参照可
   - 在庫追加可
+  - 仕入発注作成/入荷/キャンセル可
   - 受注作成/確定/キャンセル可
 - VIEWER:
-  - 商品・受注の参照のみ可
+  - 商品・仕入発注・受注の参照のみ可
 
 ## 5. エラーハンドリング方針
 

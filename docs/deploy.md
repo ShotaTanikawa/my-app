@@ -54,7 +54,7 @@
 
 - Renderで `New +` -> `PostgreSQL`
 - DB作成後、接続情報をBackendの `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` に設定
-- 初回起動時にFlywayが `V1` 〜 `V4` を自動適用
+- 初回起動時にFlywayが `V1` 〜 `V5` を自動適用
 
 ## 4. Frontend（Vercel）
 

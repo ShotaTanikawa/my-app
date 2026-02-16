@@ -12,6 +12,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/dashboard", label: "Dashboard" },
     { href: "/sessions", label: "Sessions" },
     { href: "/products", label: "Products" },
+    { href: "/purchase-orders", label: "Purchase Orders" },
     { href: "/orders", label: "Orders" },
     ...(state?.user.role === "ADMIN" ? [{ href: "/audit-logs", label: "Audit Logs" }] : []),
   ];

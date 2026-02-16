@@ -19,6 +19,9 @@ const ACTION_OPTIONS = [
   "ORDER_CREATE",
   "ORDER_CONFIRM",
   "ORDER_CANCEL",
+  "PURCHASE_ORDER_CREATE",
+  "PURCHASE_ORDER_RECEIVE",
+  "PURCHASE_ORDER_CANCEL",
 ] as const;
 
 export default function AuditLogsPage() {

@@ -11,6 +11,8 @@ public record ProductResponse(
         String name,
         String description,
         BigDecimal unitPrice,
+        Integer reorderPoint,
+        Integer reorderQuantity,
         Integer availableQuantity,
         Integer reservedQuantity
 ) {
