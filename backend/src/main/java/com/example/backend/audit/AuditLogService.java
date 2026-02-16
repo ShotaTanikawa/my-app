@@ -1,14 +1,18 @@
 package com.example.backend.audit;
 
+import com.example.backend.audit.dto.AuditLogPageResponse;
 import com.example.backend.audit.dto.AuditLogResponse;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 /**
  * ドメインルールと業務処理をまとめるサービス。
@@ -24,6 +28,61 @@ public class AuditLogService {
 
     public AuditLogService(AuditLogRepository auditLogRepository) {
         this.auditLogRepository = auditLogRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public AuditLogPageResponse getLogs(
+            int page,
+            int size,
+            String action,
+            String actor,
+            OffsetDateTime from,
+            OffsetDateTime to
+    ) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(size, 200));
+        PageRequest pageable = PageRequest.of(
+                safePage,
+                safeSize,
+                Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))
+        );
+
+        Specification<AuditLog> specification = (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
+
+        if (action != null && !action.isBlank()) {
+            String normalizedAction = action.trim();
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.equal(root.get("action"), normalizedAction));
+        }
+
+        if (actor != null && !actor.isBlank()) {
+            String likePattern = "%" + actor.trim().toLowerCase() + "%";
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.like(criteriaBuilder.lower(root.get("actorUsername")), likePattern));
+        }
+
+        if (from != null) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), from));
+        }
+
+        if (to != null) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.lessThanOrEqualTo(root.get("createdAt"), to));
+        }
+
+        Page<AuditLogResponse> pageResult = auditLogRepository.findAll(specification, pageable)
+                .map(this::toResponse);
+
+        return new AuditLogPageResponse(
+                pageResult.getContent(),
+                pageResult.getNumber(),
+                pageResult.getSize(),
+                pageResult.getTotalElements(),
+                pageResult.getTotalPages(),
+                pageResult.hasNext(),
+                pageResult.hasPrevious()
+        );
     }
 
     @Transactional(readOnly = true)

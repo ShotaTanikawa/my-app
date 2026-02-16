@@ -6,6 +6,7 @@
 技術判断メモ: `docs/tech-decisions.md`
 UI仕様: `docs/ui-spec.md`
 デプロイ手順: `docs/deploy.md`
+V1.1ロードマップ: `docs/v1.1-roadmap.md`
 
 - フロントエンド: Next.js 16 + TypeScript
 - Spring Security + ロール制御（`ADMIN` / `OPERATOR` / `VIEWER`）
@@ -123,6 +124,7 @@ pnpm test:e2e
 - OPERATORで受注作成
 - 受注の確定フロー
 - 受注のキャンセルフロー
+- 監査ログ画面で操作履歴を検証
 
 ## CI（GitHub Actions）
 
@@ -223,13 +225,13 @@ curl -X POST http://localhost:8080/api/auth/logout \
 ### 監査ログ取得（ADMIN）
 
 ```bash
-curl -X GET "http://localhost:8080/api/audit-logs?limit=100" \
+curl -X GET "http://localhost:8080/api/audit-logs?page=0&size=50&action=ORDER_CREATE&actor=operator" \
   -H "Authorization: Bearer ${TOKEN}"
 ```
 
 ## 今後の拡張候補
 
-- 監査ログの検索・フィルタ強化（期間/操作種別/ユーザー）
+- 監査ログのCSVエクスポート
 - CSV一括取込
 - 日次バッチ（在庫レポート）
-- UI/UX改善（検索・フィルタ・ページング）
+- UI/UX改善（絞り込み条件のプリセット保存）

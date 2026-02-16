@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -55,7 +56,7 @@ class AuditLogIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        JsonNode logs = objectMapper.readTree(logsResult.getResponse().getContentAsString());
+        JsonNode logs = objectMapper.readTree(logsResult.getResponse().getContentAsString()).path("items");
         boolean found = false;
         for (JsonNode log : logs) {
             if ("PRODUCT_CREATE".equals(log.path("action").asText())
@@ -66,6 +67,42 @@ class AuditLogIntegrationTest {
         }
 
         assertTrue(found, "PRODUCT_CREATE audit log was not found");
+    }
+
+    @Test
+    void adminCanFilterAuditLogsByAction() throws Exception {
+        String adminToken = login("admin", "admin123");
+
+        mockMvc.perform(
+                        post("/api/products")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(Map.of(
+                                        "sku", "AUDIT-FILTER-" + System.currentTimeMillis(),
+                                        "name", "Audit Filter Product",
+                                        "unitPrice", 1600
+                                )))
+                )
+                .andExpect(status().isCreated());
+
+        MvcResult logsResult = mockMvc.perform(
+                        get("/api/audit-logs")
+                                .param("action", "PRODUCT_CREATE")
+                                .param("size", "20")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                )
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode root = objectMapper.readTree(logsResult.getResponse().getContentAsString());
+        JsonNode items = root.path("items");
+        assertTrue(items.isArray(), "items should be an array");
+        assertTrue(items.size() > 0, "filtered items should not be empty");
+        assertTrue(root.path("size").asInt() <= 20, "size should reflect request parameter");
+
+        for (JsonNode item : items) {
+            assertEquals("PRODUCT_CREATE", item.path("action").asText());
+        }
     }
 
     @Test

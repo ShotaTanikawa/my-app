@@ -1,6 +1,7 @@
 import type {
   ApiErrorPayload,
-  AuditLog,
+  AuditLogPageResponse,
+  AuditLogQuery,
   LoginResponse,
   MeResponse,
   Product,
@@ -167,8 +168,28 @@ export async function cancelOrder(credentials: Credentials, orderId: number): Pr
   });
 }
 
-export async function getAuditLogs(credentials: Credentials, limit = 100): Promise<AuditLog[]> {
-  return request<AuditLog[]>(`/api/audit-logs?limit=${limit}`, { credentials });
+export async function getAuditLogs(
+  credentials: Credentials,
+  query: AuditLogQuery = {},
+): Promise<AuditLogPageResponse> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("page", String(query.page ?? 0));
+  searchParams.set("size", String(query.size ?? 50));
+
+  if (query.action) {
+    searchParams.set("action", query.action);
+  }
+  if (query.actor) {
+    searchParams.set("actor", query.actor);
+  }
+  if (query.from) {
+    searchParams.set("from", query.from);
+  }
+  if (query.to) {
+    searchParams.set("to", query.to);
+  }
+
+  return request<AuditLogPageResponse>(`/api/audit-logs?${searchParams.toString()}`, { credentials });
 }
 
 export type { Credentials };

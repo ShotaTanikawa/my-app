@@ -1,6 +1,6 @@
 # デプロイ手順（Render + Vercel）
 
-最終更新日: 2026-02-13
+最終更新日: 2026-02-16
 
 ## 1. 構成
 
@@ -51,7 +51,7 @@
 
 - Renderで `New +` -> `PostgreSQL`
 - DB作成後、接続情報をBackendの `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` に設定
-- 初回起動時にFlywayが `V1`, `V2` を自動適用
+- 初回起動時にFlywayが `V1` 〜 `V3` を自動適用
 
 ## 4. Frontend（Vercel）
 

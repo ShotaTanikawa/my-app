@@ -58,6 +58,27 @@ export type AuditLog = {
   createdAt: string;
 };
 
+// 監査ログ検索条件。
+export type AuditLogQuery = {
+  page?: number;
+  size?: number;
+  action?: string;
+  actor?: string;
+  from?: string;
+  to?: string;
+};
+
+// 監査ログページング結果。
+export type AuditLogPageResponse = {
+  items: AuditLog[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+};
+
 // バックエンド統一エラーペイロード。
 export type ApiErrorPayload = {
   timestamp: string;

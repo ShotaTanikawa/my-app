@@ -4,7 +4,20 @@ import { useAuth } from "@/components/auth-provider";
 import { getAuditLogs } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import type { AuditLog } from "@/types/api";
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+
+const PAGE_SIZE = 50;
+const ACTION_OPTIONS = [
+  "AUTH_LOGIN",
+  "AUTH_REFRESH",
+  "AUTH_LOGOUT",
+  "PRODUCT_CREATE",
+  "PRODUCT_UPDATE",
+  "STOCK_ADD",
+  "ORDER_CREATE",
+  "ORDER_CONFIRM",
+  "ORDER_CANCEL",
+] as const;
 
 export default function AuditLogsPage() {
   const { state } = useAuth();
@@ -14,6 +27,15 @@ export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrevious, setHasPrevious] = useState(false);
+  const [draftAction, setDraftAction] = useState("");
+  const [draftActor, setDraftActor] = useState("");
+  const [actionFilter, setActionFilter] = useState("");
+  const [actorFilter, setActorFilter] = useState("");
 
   useEffect(() => {
     // 監査ログ閲覧はADMINのみ許可する。
@@ -27,10 +49,19 @@ export default function AuditLogsPage() {
       setLoading(true);
       setError("");
       try {
-        // 画面表示コストと可読性のバランスを取り、最新200件を取得する。
-        const data = await getAuditLogs(currentCredentials, 200);
+        // 条件に応じて最新順で監査ログをページ取得する。
+        const data = await getAuditLogs(currentCredentials, {
+          page,
+          size: PAGE_SIZE,
+          action: actionFilter || undefined,
+          actor: actorFilter || undefined,
+        });
         if (mounted) {
-          setLogs(data);
+          setLogs(data.items);
+          setTotalPages(data.totalPages);
+          setTotalElements(data.totalElements);
+          setHasNext(data.hasNext);
+          setHasPrevious(data.hasPrevious);
         }
       } catch (err) {
         if (!mounted) {
@@ -48,7 +79,7 @@ export default function AuditLogsPage() {
     return () => {
       mounted = false;
     };
-  }, [credentials, role]);
+  }, [credentials, role, page, actionFilter, actorFilter]);
 
   if (!state || !credentials) {
     return null;
@@ -65,50 +96,130 @@ export default function AuditLogsPage() {
     );
   }
 
+  function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPage(0);
+    setActionFilter(draftAction.trim());
+    setActorFilter(draftActor.trim());
+  }
+
+  function handleClear() {
+    setDraftAction("");
+    setDraftActor("");
+    setActionFilter("");
+    setActorFilter("");
+    setPage(0);
+  }
+
   return (
     <div className="page">
       <section className="card">
         <div className="button-row" style={{ justifyContent: "space-between", marginBottom: 10 }}>
           <h2>監査ログ</h2>
-          <span style={{ color: "#607086", fontSize: 13 }}>最新200件</span>
+          <span style={{ color: "#607086", fontSize: 13 }}>
+            全{totalElements}件 / {page + 1}ページ目
+          </span>
         </div>
+
+        <form className="form-grid" onSubmit={handleSearch}>
+          <div className="field">
+            <label htmlFor="audit-action">操作種別</label>
+            <select
+              id="audit-action"
+              className="select"
+              value={draftAction}
+              onChange={(event) => setDraftAction(event.target.value)}
+            >
+              <option value="">すべて</option>
+              {ACTION_OPTIONS.map((action) => (
+                <option key={action} value={action}>
+                  {action}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="audit-actor">ユーザー名</label>
+            <input
+              id="audit-actor"
+              className="input"
+              value={draftActor}
+              onChange={(event) => setDraftActor(event.target.value)}
+              placeholder="部分一致"
+            />
+          </div>
+          <div className="button-row" style={{ alignItems: "end" }}>
+            <button className="button primary" type="submit" disabled={loading}>
+              検索
+            </button>
+            <button className="button secondary" type="button" onClick={handleClear} disabled={loading}>
+              クリア
+            </button>
+          </div>
+        </form>
 
         {error && <p className="inline-error">{error}</p>}
 
         {!error && (
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>日時</th>
-                  <th>ユーザー</th>
-                  <th>ロール</th>
-                  <th>操作</th>
-                  <th>対象</th>
-                  <th>詳細</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <tr key={log.id}>
-                    <td>{formatDateTime(log.createdAt)}</td>
-                    <td>{log.actorUsername}</td>
-                    <td>{log.actorRole}</td>
-                    <td>{log.action}</td>
-                    <td>
-                      {log.targetType ?? "-"}
-                      {log.targetId ? `#${log.targetId}` : ""}
-                    </td>
-                    <td>{log.detail ?? "-"}</td>
-                  </tr>
-                ))}
-                {!loading && logs.length === 0 && (
+          <div className="page" style={{ gap: 10 }}>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
                   <tr>
-                    <td colSpan={6}>監査ログがありません。</td>
+                    <th>日時</th>
+                    <th>ユーザー</th>
+                    <th>ロール</th>
+                    <th>操作</th>
+                    <th>対象</th>
+                    <th>詳細</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {logs.map((log) => (
+                    <tr key={log.id}>
+                      <td>{formatDateTime(log.createdAt)}</td>
+                      <td>{log.actorUsername}</td>
+                      <td>{log.actorRole}</td>
+                      <td>{log.action}</td>
+                      <td>
+                        {log.targetType ?? "-"}
+                        {log.targetId ? `#${log.targetId}` : ""}
+                      </td>
+                      <td>{log.detail ?? "-"}</td>
+                    </tr>
+                  ))}
+                  {!loading && logs.length === 0 && (
+                    <tr>
+                      <td colSpan={6}>条件に一致する監査ログがありません。</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="button-row" style={{ justifyContent: "space-between" }}>
+              <span style={{ color: "#607086", fontSize: 13 }}>
+                {Math.max(totalPages, 1)}ページ中 {page + 1}ページ目
+              </span>
+              <div className="button-row">
+                <button
+                  className="button secondary"
+                  type="button"
+                  onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+                  disabled={!hasPrevious || loading}
+                >
+                  前へ
+                </button>
+                <button
+                  className="button secondary"
+                  type="button"
+                  onClick={() => setPage((prev) => prev + 1)}
+                  disabled={!hasNext || loading}
+                >
+                  次へ
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </section>

@@ -1,6 +1,6 @@
 # UI仕様（MVP v1 / Next.js）
 
-最終更新日: 2026-02-13
+最終更新日: 2026-02-16
 前提: BackendはSpring Boot API（JWT Bearer認証）
 
 ## 1. 画面一覧
@@ -146,10 +146,12 @@ API:
 - 操作種別
 - 対象
 - 詳細
+- フィルタ（操作種別、ユーザー名）
+- ページング（前へ/次へ）
 
 API:
 
-- `GET /api/audit-logs?limit=200`（ADMIN）
+- `GET /api/audit-logs?page=0&size=50&action=ORDER_CREATE&actor=operator`（ADMIN）
 
 ## 4. 権限別UI制御
 
