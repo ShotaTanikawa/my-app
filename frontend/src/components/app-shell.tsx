@@ -10,6 +10,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // 権限に応じてナビゲーション項目を出し分ける。
   const navItems = [
     { href: "/dashboard", label: "Dashboard" },
+    { href: "/sessions", label: "Sessions" },
     { href: "/products", label: "Products" },
     { href: "/orders", label: "Orders" },
     ...(state?.user.role === "ADMIN" ? [{ href: "/audit-logs", label: "Audit Logs" }] : []),

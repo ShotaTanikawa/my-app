@@ -90,6 +90,7 @@ pnpm dev
 
 - `/login`
 - `/dashboard`
+- `/sessions`
 - `/products`
 - `/orders`
 - `/orders/new`
@@ -220,6 +221,20 @@ curl -X POST http://localhost:8080/api/auth/refresh \
 curl -X POST http://localhost:8080/api/auth/logout \
   -H 'Content-Type: application/json' \
   -d "{\"refreshToken\":\"${REFRESH_TOKEN}\"}"
+```
+
+### セッション一覧取得（端末管理）
+
+```bash
+curl -X GET http://localhost:8080/api/auth/sessions \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+### セッション失効（端末単位）
+
+```bash
+curl -X DELETE http://localhost:8080/api/auth/sessions/<sessionId> \
+  -H "Authorization: Bearer ${TOKEN}"
 ```
 
 ### 監査ログ取得（ADMIN）

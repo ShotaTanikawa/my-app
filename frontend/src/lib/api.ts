@@ -1,5 +1,6 @@
 import type {
   ApiErrorPayload,
+  AuthSession,
   AuditLogPageResponse,
   AuditLogQuery,
   LoginResponse,
@@ -89,6 +90,17 @@ export async function logout(refreshToken: string): Promise<void> {
   return request<void>("/api/auth/logout", {
     method: "POST",
     body: { refreshToken },
+  });
+}
+
+export async function getSessions(credentials: Credentials): Promise<AuthSession[]> {
+  return request<AuthSession[]>("/api/auth/sessions", { credentials });
+}
+
+export async function revokeSession(credentials: Credentials, sessionId: string): Promise<void> {
+  return request<void>(`/api/auth/sessions/${sessionId}`, {
+    method: "DELETE",
+    credentials,
   });
 }
 

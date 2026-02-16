@@ -16,6 +16,16 @@ export type LoginResponse = {
   user: MeResponse;
 };
 
+// ログイン端末セッション情報。
+export type AuthSession = {
+  sessionId: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+  lastUsedAt: string;
+  expiresAt: string;
+};
+
 // 商品と在庫の結合ビュー。
 export type Product = {
   id: number;

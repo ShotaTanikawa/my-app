@@ -13,8 +13,10 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 /**
@@ -105,6 +107,39 @@ class AuthControllerIntegrationTest {
                         post("/api/auth/logout")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(Map.of("refreshToken", refreshToken)))
+                )
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(
+                        post("/api/auth/refresh")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(Map.of("refreshToken", refreshToken)))
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Invalid or expired refresh token"));
+    }
+
+    @Test
+    void userCanListAndRevokeOwnSession() throws Exception {
+        JsonNode loginJson = loginAs("operator", "operator123");
+        String accessToken = loginJson.path("accessToken").asText();
+        String refreshToken = loginJson.path("refreshToken").asText();
+
+        MvcResult sessionsResult = mockMvc.perform(
+                        get("/api/auth/sessions")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].sessionId").isString())
+                .andReturn();
+
+        JsonNode sessions = objectMapper.readTree(sessionsResult.getResponse().getContentAsString());
+        String sessionId = sessions.get(0).path("sessionId").asText();
+        assertFalse(sessionId.isBlank(), "session id should not be blank");
+
+        mockMvc.perform(
+                        delete("/api/auth/sessions/{sessionId}", sessionId)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 )
                 .andExpect(status().isNoContent());
 

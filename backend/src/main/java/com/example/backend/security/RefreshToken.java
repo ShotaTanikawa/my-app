@@ -23,18 +23,35 @@ public class RefreshToken {
     @Column(name = "token_hash", nullable = false, unique = true, length = 128)
     private String tokenHash;
 
+    @Column(name = "session_id", nullable = false, length = 64)
+    private String sessionId;
+
+    @Column(name = "user_agent", length = 512)
+    private String userAgent;
+
+    @Column(name = "ip_address", length = 64)
+    private String ipAddress;
+
     @Column(name = "expires_at", nullable = false)
     private OffsetDateTime expiresAt;
 
     @Column(nullable = false)
     private boolean revoked;
 
+    @Column(name = "last_used_at", nullable = false)
+    private OffsetDateTime lastUsedAt;
+
+    @Column(name = "revoked_at")
+    private OffsetDateTime revokedAt;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
     @PrePersist
     void onCreate() {
-        this.createdAt = OffsetDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now();
+        this.lastUsedAt = now;
+        this.createdAt = now;
     }
 
     public Long getId() {
@@ -57,6 +74,30 @@ public class RefreshToken {
         this.tokenHash = tokenHash;
     }
 
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
+    }
+
+    public String getUserAgent() {
+        return userAgent;
+    }
+
+    public void setUserAgent(String userAgent) {
+        this.userAgent = userAgent;
+    }
+
+    public String getIpAddress() {
+        return ipAddress;
+    }
+
+    public void setIpAddress(String ipAddress) {
+        this.ipAddress = ipAddress;
+    }
+
     public OffsetDateTime getExpiresAt() {
         return expiresAt;
     }
@@ -71,6 +112,22 @@ public class RefreshToken {
 
     public void setRevoked(boolean revoked) {
         this.revoked = revoked;
+    }
+
+    public OffsetDateTime getLastUsedAt() {
+        return lastUsedAt;
+    }
+
+    public void setLastUsedAt(OffsetDateTime lastUsedAt) {
+        this.lastUsedAt = lastUsedAt;
+    }
+
+    public OffsetDateTime getRevokedAt() {
+        return revokedAt;
+    }
+
+    public void setRevokedAt(OffsetDateTime revokedAt) {
+        this.revokedAt = revokedAt;
     }
 
     public OffsetDateTime getCreatedAt() {
