@@ -167,11 +167,13 @@ API:
 - フィルタ（操作種別、ユーザー名）
 - ページング（前へ/次へ）
 - CSV出力ボタン（現在の絞り込み条件を反映）
+- 保持日数入力 + クリーンアップ実行ボタン（ADMIN）
 
 API:
 
 - `GET /api/audit-logs?page=0&size=50&action=ORDER_CREATE&actor=operator`（ADMIN）
 - `GET /api/audit-logs/export.csv?action=ORDER_CREATE&actor=operator&limit=1000`（ADMIN）
+- `POST /api/audit-logs/cleanup?retentionDays=90`（ADMIN）
 
 ## 4. 権限別UI制御
 

@@ -23,6 +23,7 @@ public class AuditLogService {
 
     private static final String SYSTEM_USER = "SYSTEM";
     private static final String SYSTEM_ROLE = "SYSTEM";
+    private static final String AUDIT_LOG_CLEANUP_ACTION = "AUDIT_LOG_CLEANUP";
 
     private final AuditLogRepository auditLogRepository;
 
@@ -110,6 +111,28 @@ public class AuditLogService {
         save(username, role, action, targetType, targetId, detail);
     }
 
+    @Transactional
+    public AuditLogCleanupResult cleanupExpiredLogs(int retentionDays, CleanupTrigger trigger) {
+        // 不正値が来ても監査ログ全消去を避けるため1日以上へ補正する。
+        int safeRetentionDays = Math.max(1, retentionDays);
+        OffsetDateTime executedAt = OffsetDateTime.now();
+        OffsetDateTime cutoff = executedAt.minusDays(safeRetentionDays);
+        long deletedCount = auditLogRepository.deleteByCreatedAtBefore(cutoff);
+
+        String detail = "trigger=" + trigger
+                + ", retentionDays=" + safeRetentionDays
+                + ", cutoff=" + cutoff
+                + ", deletedCount=" + deletedCount;
+
+        if (trigger == CleanupTrigger.MANUAL) {
+            log(AUDIT_LOG_CLEANUP_ACTION, "AUDIT_LOG", null, detail);
+        } else {
+            logAs(SYSTEM_USER, SYSTEM_ROLE, AUDIT_LOG_CLEANUP_ACTION, "AUDIT_LOG", null, detail);
+        }
+
+        return new AuditLogCleanupResult(deletedCount, safeRetentionDays, cutoff, executedAt);
+    }
+
     private void save(String actorUsername, String actorRole, String action, String targetType, String targetId, String detail) {
         AuditLog auditLog = new AuditLog();
         auditLog.setActorUsername(actorUsername);
@@ -185,5 +208,18 @@ public class AuditLogService {
     }
 
     private record Actor(String username, String role) {
+    }
+
+    public enum CleanupTrigger {
+        SCHEDULED,
+        MANUAL
+    }
+
+    public record AuditLogCleanupResult(
+            long deletedCount,
+            int retentionDays,
+            OffsetDateTime cutoff,
+            OffsetDateTime executedAt
+    ) {
     }
 }

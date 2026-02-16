@@ -90,6 +90,14 @@ export type AuditLogPageResponse = {
   hasPrevious: boolean;
 };
 
+// 監査ログクリーンアップ実行結果。
+export type AuditLogCleanupResponse = {
+  deletedCount: number;
+  retentionDays: number;
+  cutoff: string;
+  executedAt: string;
+};
+
 // バックエンド統一エラーペイロード。
 export type ApiErrorPayload = {
   timestamp: string;

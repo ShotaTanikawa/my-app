@@ -8,9 +8,11 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.time.OffsetDateTime;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -31,6 +33,9 @@ class AuditLogIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void adminCanReadAuditLogsAndSeeProductCreateAction() throws Exception {
@@ -155,6 +160,64 @@ class AuditLogIntegrationTest {
         assertTrue(disposition != null && disposition.contains("audit-logs.csv"), "filename should be set");
         assertTrue(csvBody.startsWith("createdAt,actorUsername,actorRole,action,targetType,targetId,detail"));
         assertTrue(csvBody.contains("\"PRODUCT_CREATE\""), "csv should contain PRODUCT_CREATE action");
+    }
+
+    @Test
+    void adminCanCleanupOldAuditLogs() throws Exception {
+        String adminToken = login("admin", "admin123");
+        String sku = "AUDIT-CLEANUP-" + System.currentTimeMillis();
+
+        mockMvc.perform(
+                        post("/api/products")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(Map.of(
+                                        "sku", sku,
+                                        "name", "Cleanup Product",
+                                        "unitPrice", 1800
+                                )))
+                )
+                .andExpect(status().isCreated());
+
+        int affected = jdbcTemplate.update(
+                "UPDATE audit_logs SET created_at = ? WHERE action = ? AND detail LIKE ?",
+                OffsetDateTime.now().minusDays(120),
+                "PRODUCT_CREATE",
+                "%" + sku + "%"
+        );
+        assertTrue(affected > 0, "test setup failed to mark old logs");
+
+        MvcResult cleanupResult = mockMvc.perform(
+                        post("/api/audit-logs/cleanup")
+                                .param("retentionDays", "30")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                )
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode cleanupJson = objectMapper.readTree(cleanupResult.getResponse().getContentAsString());
+        assertEquals(30, cleanupJson.path("retentionDays").asInt());
+        assertTrue(cleanupJson.path("deletedCount").asLong() >= affected);
+
+        Integer remaining = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM audit_logs WHERE action = ? AND detail LIKE ?",
+                Integer.class,
+                "PRODUCT_CREATE",
+                "%" + sku + "%"
+        );
+        assertEquals(0, remaining);
+    }
+
+    @Test
+    void nonAdminCannotCleanupAuditLogs() throws Exception {
+        String operatorToken = login("operator", "operator123");
+
+        mockMvc.perform(
+                        post("/api/audit-logs/cleanup")
+                                .param("retentionDays", "30")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
+                )
+                .andExpect(status().isForbidden());
     }
 
     private String login(String username, String password) throws Exception {

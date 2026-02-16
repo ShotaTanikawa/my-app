@@ -12,6 +12,7 @@ V1.1ロードマップ: `docs/v1.1-roadmap.md`
 - Spring Security + ロール制御（`ADMIN` / `OPERATOR` / `VIEWER`）
 - `@Transactional` による在庫引当・確定・キャンセル
 - `@Scheduled` による低在庫レポートジョブ
+- 監査ログCSV出力・保持ポリシー（手動クリーンアップ/定期削除）
 - Flywayマイグレーション
 - PostgreSQL構成（Docker Compose）
 - Actuator (`/actuator/health`, `/actuator/info`)
@@ -76,6 +77,9 @@ pnpm dev
 - `APP_JWT_EXPIRATION_SECONDS`（JWT有効期限秒）
 - `APP_JWT_REFRESH_EXPIRATION_SECONDS`（Refresh Token有効期限秒）
 - `REFRESH_TOKEN_CLEANUP_CRON`（Refresh Tokenクリーンアップcron）
+- `AUDIT_LOG_RETENTION_ENABLED`（監査ログ定期クリーンアップ有効/無効）
+- `AUDIT_LOG_RETENTION_DAYS`（監査ログ保持日数）
+- `AUDIT_LOG_RETENTION_CRON`（監査ログ定期クリーンアップcron）
 - `APP_SEED_ENABLED`（初期ユーザー自動作成フラグ）
 
 ## 初期ユーザー
@@ -250,6 +254,13 @@ curl -X GET "http://localhost:8080/api/audit-logs?page=0&size=50&action=ORDER_CR
 curl -X GET "http://localhost:8080/api/audit-logs/export.csv?action=ORDER_CREATE&actor=operator&limit=1000" \
   -H "Authorization: Bearer ${TOKEN}" \
   -o audit-logs.csv
+```
+
+### 監査ログクリーンアップ（ADMIN）
+
+```bash
+curl -X POST "http://localhost:8080/api/audit-logs/cleanup?retentionDays=90" \
+  -H "Authorization: Bearer ${TOKEN}"
 ```
 
 ## 今後の拡張候補

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/components/auth-provider";
-import { exportAuditLogsCsv, getAuditLogs } from "@/lib/api";
+import { cleanupAuditLogs, exportAuditLogsCsv, getAuditLogs } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import type { AuditLog } from "@/types/api";
 import { FormEvent, useEffect, useState } from "react";
@@ -12,6 +12,7 @@ const ACTION_OPTIONS = [
   "AUTH_REFRESH",
   "AUTH_LOGOUT",
   "AUTH_SESSION_REVOKE",
+  "AUDIT_LOG_CLEANUP",
   "PRODUCT_CREATE",
   "PRODUCT_UPDATE",
   "STOCK_ADD",
@@ -37,7 +38,11 @@ export default function AuditLogsPage() {
   const [draftActor, setDraftActor] = useState("");
   const [actionFilter, setActionFilter] = useState("");
   const [actorFilter, setActorFilter] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
+  const [cleanupRetentionDays, setCleanupRetentionDays] = useState("90");
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [cleanupMessage, setCleanupMessage] = useState("");
 
   useEffect(() => {
     // 監査ログ閲覧はADMINのみ許可する。
@@ -81,7 +86,7 @@ export default function AuditLogsPage() {
     return () => {
       mounted = false;
     };
-  }, [credentials, role, page, actionFilter, actorFilter]);
+  }, [credentials, role, page, actionFilter, actorFilter, reloadKey]);
 
   if (!state || !credentials) {
     return null;
@@ -120,6 +125,7 @@ export default function AuditLogsPage() {
     }
 
     setError("");
+    setCleanupMessage("");
     setIsExporting(true);
     try {
       const blob = await exportAuditLogsCsv(currentCredentials, {
@@ -140,6 +146,35 @@ export default function AuditLogsPage() {
       setError(err instanceof Error ? err.message : "CSV出力に失敗しました。");
     } finally {
       setIsExporting(false);
+    }
+  }
+
+  async function handleCleanup() {
+    const currentCredentials = credentials;
+    if (!currentCredentials) {
+      return;
+    }
+
+    // APIへ渡す前にクライアント側で入力値を最低限検証する。
+    const parsedRetentionDays = Number.parseInt(cleanupRetentionDays, 10);
+    if (Number.isNaN(parsedRetentionDays) || parsedRetentionDays < 1) {
+      setError("保持日数は1以上の整数で入力してください。");
+      return;
+    }
+
+    setError("");
+    setCleanupMessage("");
+    setIsCleaningUp(true);
+    try {
+      const result = await cleanupAuditLogs(currentCredentials, parsedRetentionDays);
+      setCleanupMessage(
+        `保持${result.retentionDays}日より古い監査ログを${result.deletedCount}件削除しました。`,
+      );
+      setReloadKey((prev) => prev + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "監査ログクリーンアップに失敗しました。");
+    } finally {
+      setIsCleaningUp(false);
     }
   }
 
@@ -191,14 +226,37 @@ export default function AuditLogsPage() {
               className="button secondary"
               type="button"
               onClick={handleExportCsv}
-              disabled={loading || isExporting}
+              disabled={loading || isExporting || isCleaningUp}
             >
               {isExporting ? "出力中..." : "CSV出力"}
             </button>
           </div>
         </form>
 
+        <div className="button-row" style={{ marginTop: 10, alignItems: "end", justifyContent: "space-between" }}>
+          <div className="field" style={{ maxWidth: 260 }}>
+            <label htmlFor="audit-retention-days">削除対象の保持日数</label>
+            <input
+              id="audit-retention-days"
+              className="input"
+              type="number"
+              min={1}
+              value={cleanupRetentionDays}
+              onChange={(event) => setCleanupRetentionDays(event.target.value)}
+            />
+          </div>
+          <button
+            className="button secondary"
+            type="button"
+            onClick={handleCleanup}
+            disabled={loading || isExporting || isCleaningUp}
+          >
+            {isCleaningUp ? "削除中..." : "古いログを削除"}
+          </button>
+        </div>
+
         {error && <p className="inline-error">{error}</p>}
+        {!error && cleanupMessage && <p style={{ color: "#2f6f44", fontSize: 13 }}>{cleanupMessage}</p>}
 
         {!error && (
           <div className="page" style={{ gap: 10 }}>

@@ -1,4 +1,5 @@
 import type {
+  AuditLogCleanupResponse,
   ApiErrorPayload,
   AuthSession,
   AuditLogPageResponse,
@@ -246,6 +247,24 @@ export async function exportAuditLogsCsv(
   }
 
   return response.blob();
+}
+
+export async function cleanupAuditLogs(
+  credentials: Credentials,
+  retentionDays?: number,
+): Promise<AuditLogCleanupResponse> {
+  const searchParams = new URLSearchParams();
+  if (retentionDays !== undefined) {
+    searchParams.set("retentionDays", String(retentionDays));
+  }
+
+  const querySuffix = searchParams.toString();
+  const path = querySuffix ? `/api/audit-logs/cleanup?${querySuffix}` : "/api/audit-logs/cleanup";
+
+  return request<AuditLogCleanupResponse>(path, {
+    method: "POST",
+    credentials,
+  });
 }
 
 export type { Credentials };
