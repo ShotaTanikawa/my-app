@@ -5,6 +5,7 @@ export type UserRole = "ADMIN" | "OPERATOR" | "VIEWER";
 export type MeResponse = {
   username: string;
   role: UserRole;
+  mfaEnabled: boolean;
 };
 
 // ログイン/リフレッシュ時のトークン応答。
@@ -14,6 +15,18 @@ export type LoginResponse = {
   expiresIn: number;
   refreshToken: string;
   user: MeResponse;
+};
+
+// パスワード再設定申請レスポンス。
+export type PasswordResetRequestResponse = {
+  message: string;
+  resetToken: string | null;
+};
+
+// MFAセットアップ応答。
+export type MfaSetupResponse = {
+  secret: string;
+  otpauthUrl: string;
 };
 
 // ログイン端末セッション情報。

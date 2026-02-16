@@ -393,6 +393,12 @@ textarea {
   font-size: 0.87rem;
 }
 
+.inline-info {
+  margin-top: 6px;
+  color: #0a6180;
+  font-size: 0.87rem;
+}
+
 .toast-region {
   position: fixed;
   top: 16px;
@@ -494,6 +500,10 @@ textarea {
   margin: 2px 0;
   color: #607086;
   font-size: 0.84rem;
+}
+
+.login-mode-switch .button {
+  flex: 1 1 120px;
 }
 
 /* レスポンシブ時のカラム崩し。 */

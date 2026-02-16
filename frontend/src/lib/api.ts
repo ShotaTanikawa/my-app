@@ -5,7 +5,9 @@ import type {
   AuditLogPageResponse,
   AuditLogQuery,
   LoginResponse,
+  MfaSetupResponse,
   MeResponse,
+  PasswordResetRequestResponse,
   Product,
   ProductCategory,
   ProductImportResult,
@@ -47,9 +49,19 @@ type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
   credentials?: Credentials;
+  idempotencyKey?: string;
+  disableIdempotency?: boolean;
 };
 
+function generateIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `idem-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 async function request<T>(path: string, options?: RequestOptions): Promise<T> {
+  const method = options?.method ?? "GET";
   const headers = new Headers();
   headers.set("Content-Type", "application/json");
 
@@ -57,8 +69,12 @@ async function request<T>(path: string, options?: RequestOptions): Promise<T> {
     headers.set("Authorization", toBearerAuthHeader(options.credentials.accessToken));
   }
 
+  if (method !== "GET" && !options?.disableIdempotency) {
+    headers.set("Idempotency-Key", options?.idempotencyKey ?? generateIdempotencyKey());
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: options?.method ?? "GET",
+    method,
     headers,
     body: options?.body ? JSON.stringify(options.body) : undefined,
     // ダッシュボードや入力フォームで古い値を避けるため、常に最新レスポンスを取得する。
@@ -86,10 +102,12 @@ async function request<T>(path: string, options?: RequestOptions): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function login(username: string, password: string): Promise<LoginResponse> {
+export async function login(username: string, password: string, mfaCode?: string): Promise<LoginResponse> {
   return request<LoginResponse>("/api/auth/login", {
     method: "POST",
-    body: { username, password },
+    body: { username, password, mfaCode: mfaCode?.trim() || undefined },
+    // ログイン失敗時の再送を避けるため明示的に冪等キーを無効化する。
+    disableIdempotency: true,
   });
 }
 
@@ -120,6 +138,46 @@ export async function revokeSession(credentials: Credentials, sessionId: string)
 
 export async function getMe(credentials: Credentials): Promise<MeResponse> {
   return request<MeResponse>("/api/auth/me", { credentials });
+}
+
+export async function requestPasswordReset(username: string): Promise<PasswordResetRequestResponse> {
+  return request<PasswordResetRequestResponse>("/api/auth/password-reset/request", {
+    method: "POST",
+    body: { username },
+    disableIdempotency: true,
+  });
+}
+
+export async function confirmPasswordReset(token: string, newPassword: string): Promise<void> {
+  return request<void>("/api/auth/password-reset/confirm", {
+    method: "POST",
+    body: { token, newPassword },
+  });
+}
+
+export async function setupMfa(credentials: Credentials): Promise<MfaSetupResponse> {
+  return request<MfaSetupResponse>("/api/auth/mfa/setup", {
+    method: "POST",
+    credentials,
+  });
+}
+
+export async function enableMfa(credentials: Credentials, code: string): Promise<MeResponse> {
+  return request<MeResponse>("/api/auth/mfa/enable", {
+    method: "POST",
+    credentials,
+    body: { code },
+    disableIdempotency: true,
+  });
+}
+
+export async function disableMfa(credentials: Credentials, code: string): Promise<MeResponse> {
+  return request<MeResponse>("/api/auth/mfa/disable", {
+    method: "POST",
+    credentials,
+    body: { code },
+    disableIdempotency: true,
+  });
 }
 
 export async function getProducts(credentials: Credentials): Promise<Product[]> {

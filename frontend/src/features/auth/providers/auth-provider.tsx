@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  getMe,
   login as loginApi,
   logout as logoutApi,
   refresh as refreshApi,
@@ -19,8 +20,9 @@ type AuthState = {
 type AuthContextValue = {
   state: AuthState | null;
   isHydrated: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string, mfaCode?: string) => Promise<void>;
   logout: () => void;
+  reloadMe: () => Promise<void>;
 };
 
 const STORAGE_KEY = "order_mgmt_auth";
@@ -33,7 +35,14 @@ function toAuthState(auth: LoginResponse): AuthState {
     credentials: { accessToken: auth.accessToken },
     refreshToken: auth.refreshToken,
     expiresAt: Date.now() + auth.expiresIn * 1000,
-    user: auth.user,
+    user: normalizeUser(auth.user),
+  };
+}
+
+function normalizeUser(user: MeResponse): MeResponse {
+  return {
+    ...user,
+    mfaEnabled: Boolean(user.mfaEnabled),
   };
 }
 
@@ -83,7 +92,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           persistState(toAuthState(refreshed));
         } else if (active) {
-          setState(parsed as AuthState);
+          setState({
+            ...(parsed as AuthState),
+            user: normalizeUser(parsed.user as MeResponse),
+          });
         }
       } catch {
         sessionStorage.removeItem(STORAGE_KEY);
@@ -100,9 +112,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [persistState]);
 
-  const login = useCallback(async (username: string, password: string) => {
+  const login = useCallback(async (username: string, password: string, mfaCode?: string) => {
     // ログインAPIでJWTとRefresh Tokenを取得し、検証済みユーザー情報と保持する。
-    const auth = await loginApi(username, password);
+    const auth = await loginApi(username, password, mfaCode);
     persistState(toAuthState(auth));
   }, [persistState]);
 
@@ -144,14 +156,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearState();
   }, [state, clearState]);
 
+  const reloadMe = useCallback(async () => {
+    if (!state) {
+      return;
+    }
+
+    const me = await getMe(state.credentials);
+    const nextState: AuthState = {
+      ...state,
+      user: normalizeUser(me),
+    };
+    persistState(nextState);
+  }, [state, persistState]);
+
   const value = useMemo(
     () => ({
       state,
       isHydrated,
       login,
       logout,
+      reloadMe,
     }),
-    [state, isHydrated, login, logout],
+    [state, isHydrated, login, logout, reloadMe],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
