@@ -90,7 +90,7 @@ class ProductImportIntegrationTest {
         assertThat(createdProduct.getName()).isEqualTo("新規商品");
         assertThat(createdProduct.getDescription()).isEqualTo("new by csv");
         assertThat(createdProduct.getCategory()).isNotNull();
-        assertThat(createdProduct.getCategory().getCode()).isEqualTo(categoryCode);
+        assertThat(createdProduct.getCategory().getId()).isEqualTo(categoryId);
         Inventory createdInventory = inventoryRepository.findByProductId(createdProduct.getId()).orElseThrow();
         assertThat(createdInventory.getAvailableQuantity()).isEqualTo(7);
     }
