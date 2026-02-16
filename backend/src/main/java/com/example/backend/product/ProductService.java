@@ -45,9 +45,10 @@ public class ProductService {
     private static final int DEFAULT_IMPORT_REORDER_QUANTITY = 10;
     private static final String ACTION_PRODUCT_IMPORT = "PRODUCT_IMPORT";
     private static final String DEFAULT_SKU_PREFIX = "PRD";
-    private static final int SKU_PREFIX_MAX_LENGTH = 12;
+    private static final int SKU_PREFIX_MAX_LENGTH = 20;
     private static final DateTimeFormatter SKU_DATE_FORMAT = DateTimeFormatter.ofPattern("yyMMdd");
     private static final Pattern SKU_PATTERN = Pattern.compile("^[A-Z0-9][A-Z0-9-]{1,63}$");
+    private static final int DEFAULT_SKU_SEQUENCE_DIGITS = 4;
 
     private final ProductRepository productRepository;
     private final ProductCategoryRepository productCategoryRepository;
@@ -195,9 +196,11 @@ public class ProductService {
     public String suggestNextSku(Long categoryId) {
         ProductCategory category = resolveCategory(categoryId);
         String prefix = buildSkuPrefix(category);
+        int sequenceDigits = resolveSkuSequenceDigits(category);
         String datePart = LocalDate.now().format(SKU_DATE_FORMAT);
         String base = prefix + "-" + datePart;
         String skuPrefix = base + "-";
+        int sequenceLimit = (int) Math.pow(10, sequenceDigits) - 1;
 
         int sequence = 1;
         Optional<Product> latest = productRepository.findTopBySkuStartingWithOrderBySkuDesc(skuPrefix);
@@ -205,14 +208,14 @@ public class ProductService {
             String latestSku = latest.get().getSku();
             if (latestSku.length() > skuPrefix.length()) {
                 String suffix = latestSku.substring(skuPrefix.length());
-                if (suffix.matches("\\d{4}")) {
+                if (suffix.matches("\\d{" + sequenceDigits + "}")) {
                     sequence = Integer.parseInt(suffix) + 1;
                 }
             }
         }
 
-        while (sequence <= 9999) {
-            String candidate = skuPrefix + String.format("%04d", sequence);
+        while (sequence <= sequenceLimit) {
+            String candidate = skuPrefix + String.format("%0" + sequenceDigits + "d", sequence);
             if (!productRepository.existsBySkuIgnoreCase(candidate)) {
                 return candidate;
             }
@@ -537,7 +540,14 @@ public class ProductService {
     }
 
     private String buildSkuPrefix(ProductCategory category) {
-        String source = category == null ? DEFAULT_SKU_PREFIX : category.getCode();
+        String source;
+        if (category == null) {
+            source = DEFAULT_SKU_PREFIX;
+        } else if (category.getSkuPrefix() != null && !category.getSkuPrefix().isBlank()) {
+            source = category.getSkuPrefix();
+        } else {
+            source = category.getCode();
+        }
         String normalized = source == null ? "" : source.trim().toUpperCase(Locale.ROOT);
         normalized = normalized.replaceAll("[^A-Z0-9]+", "-");
         normalized = normalized.replaceAll("-{2,}", "-");
@@ -550,6 +560,17 @@ public class ProductService {
             normalized = normalized.replaceAll("-+$", "");
         }
         return normalized.isBlank() ? DEFAULT_SKU_PREFIX : normalized;
+    }
+
+    private int resolveSkuSequenceDigits(ProductCategory category) {
+        if (category == null || category.getSkuSequenceDigits() == null) {
+            return DEFAULT_SKU_SEQUENCE_DIGITS;
+        }
+        int value = category.getSkuSequenceDigits();
+        if (value < 3 || value > 6) {
+            return DEFAULT_SKU_SEQUENCE_DIGITS;
+        }
+        return value;
     }
 
     private record ImportRow(

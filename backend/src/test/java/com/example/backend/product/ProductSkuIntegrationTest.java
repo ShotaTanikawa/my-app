@@ -17,6 +17,7 @@ import java.util.regex.Pattern;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -89,6 +90,28 @@ class ProductSkuIntegrationTest {
                                 )))
                 )
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void adminCanApplyCustomSkuRulePerCategory() throws Exception {
+        String adminToken = login("admin", "admin123");
+        long categoryId = createCategory(adminToken, "RULE" + (System.currentTimeMillis() % 100000), "ルールカテゴリ");
+
+        mockMvc.perform(
+                        put("/api/product-categories/{categoryId}/sku-rule", categoryId)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(Map.of(
+                                        "skuPrefix", "FIG-PRO",
+                                        "skuSequenceDigits", 5
+                                )))
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.skuPrefix").value("FIG-PRO"))
+                .andExpect(jsonPath("$.skuSequenceDigits").value(5));
+
+        String firstSku = requestNextSku(adminToken, categoryId);
+        assertThat(firstSku).matches("FIG-PRO-\\d{6}-00001");
     }
 
     private String login(String username, String password) throws Exception {

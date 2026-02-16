@@ -158,9 +158,26 @@ export async function createProductCategory(
     name: string;
     active?: boolean;
     sortOrder?: number;
+    skuPrefix?: string;
+    skuSequenceDigits?: number;
   },
 ): Promise<ProductCategory> {
   return request<ProductCategory>("/api/product-categories", { method: "POST", credentials, body });
+}
+
+export async function updateProductCategorySkuRule(
+  credentials: Credentials,
+  categoryId: number,
+  body: {
+    skuPrefix?: string;
+    skuSequenceDigits?: number;
+  },
+): Promise<ProductCategory> {
+  return request<ProductCategory>(`/api/product-categories/${categoryId}/sku-rule`, {
+    method: "PUT",
+    credentials,
+    body,
+  });
 }
 
 export async function importProductsCsv(

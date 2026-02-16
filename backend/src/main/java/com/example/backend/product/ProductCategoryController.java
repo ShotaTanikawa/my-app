@@ -2,6 +2,7 @@ package com.example.backend.product;
 
 import com.example.backend.product.dto.CreateProductCategoryRequest;
 import com.example.backend.product.dto.ProductCategoryResponse;
+import com.example.backend.product.dto.UpdateCategorySkuRuleRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,5 +35,13 @@ public class ProductCategoryController {
     public ProductCategoryResponse createCategory(@Valid @RequestBody CreateProductCategoryRequest request) {
         return productCategoryService.createCategory(request);
     }
-}
 
+    @PutMapping("/{categoryId}/sku-rule")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ProductCategoryResponse updateCategorySkuRule(
+            @PathVariable Long categoryId,
+            @Valid @RequestBody UpdateCategorySkuRuleRequest request
+    ) {
+        return productCategoryService.updateCategorySkuRule(categoryId, request);
+    }
+}

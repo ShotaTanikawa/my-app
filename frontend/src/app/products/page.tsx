@@ -10,6 +10,7 @@ import {
   getProductCategories,
   getProductsPage,
   importProductsCsv,
+  updateProductCategorySkuRule,
   updateProduct,
 } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
@@ -102,6 +103,13 @@ export default function ProductsPage() {
   const [categoryForm, setCategoryForm] = useState({
     code: "",
     name: "",
+    skuPrefix: "",
+    skuSequenceDigits: "4",
+  });
+  const [categoryRuleForm, setCategoryRuleForm] = useState({
+    categoryId: "",
+    skuPrefix: "",
+    skuSequenceDigits: "4",
   });
   const [creatingSku, setCreatingSku] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -248,6 +256,17 @@ export default function ProductsPage() {
   async function refreshCategories() {
     const data = await getProductCategories(credentials!);
     setCategories(data);
+
+    if (categoryRuleForm.categoryId) {
+      const selected = data.find((item) => item.id === Number(categoryRuleForm.categoryId));
+      if (selected) {
+        setCategoryRuleForm({
+          categoryId: String(selected.id),
+          skuPrefix: selected.skuPrefix ?? "",
+          skuSequenceDigits: String(selected.skuSequenceDigits ?? 4),
+        });
+      }
+    }
   }
 
   async function handleCreateProduct(event: FormEvent<HTMLFormElement>) {
@@ -334,8 +353,10 @@ export default function ProductsPage() {
       await createProductCategory(credentials!, {
         code: categoryForm.code.trim(),
         name: categoryForm.name.trim(),
+        skuPrefix: categoryForm.skuPrefix.trim() || undefined,
+        skuSequenceDigits: Number(categoryForm.skuSequenceDigits || "4"),
       });
-      setCategoryForm({ code: "", name: "" });
+      setCategoryForm({ code: "", name: "", skuPrefix: "", skuSequenceDigits: "4" });
       setImportResult(null);
       setSuccess("カテゴリを作成しました。");
       await refreshCategories();
@@ -354,6 +375,42 @@ export default function ProductsPage() {
     setDraftFilters(EMPTY_FILTERS);
     setFilters(EMPTY_FILTERS);
     setPage(0);
+  }
+
+  function handleCategoryRuleTargetChange(categoryId: string) {
+    if (!categoryId) {
+      setCategoryRuleForm({ categoryId: "", skuPrefix: "", skuSequenceDigits: "4" });
+      return;
+    }
+
+    const selected = categories.find((item) => item.id === Number(categoryId));
+    setCategoryRuleForm({
+      categoryId,
+      skuPrefix: selected?.skuPrefix ?? "",
+      skuSequenceDigits: String(selected?.skuSequenceDigits ?? 4),
+    });
+  }
+
+  async function handleUpdateCategoryRule(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (!categoryRuleForm.categoryId) {
+      setError("更新対象のカテゴリを選択してください。");
+      return;
+    }
+
+    try {
+      await updateProductCategorySkuRule(credentials!, Number(categoryRuleForm.categoryId), {
+        skuPrefix: categoryRuleForm.skuPrefix.trim() || undefined,
+        skuSequenceDigits: Number(categoryRuleForm.skuSequenceDigits || "4"),
+      });
+      setSuccess("カテゴリのSKUルールを更新しました。");
+      await refreshCategories();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "カテゴリSKUルール更新に失敗しました。");
+    }
   }
 
   async function handleGenerateSku() {
@@ -779,12 +836,124 @@ export default function ProductsPage() {
                 required
               />
             </div>
+            <div className="field">
+              <label htmlFor="create-category-sku-prefix">SKUプレフィックス（任意）</label>
+              <input
+                id="create-category-sku-prefix"
+                className="input"
+                value={categoryForm.skuPrefix}
+                onChange={(event) =>
+                  setCategoryForm((prev) => ({ ...prev, skuPrefix: event.target.value.toUpperCase() }))
+                }
+                placeholder="例: FIG"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="create-category-sku-digits">SKU連番桁数（3-6）</label>
+              <input
+                id="create-category-sku-digits"
+                className="input"
+                type="number"
+                min={3}
+                max={6}
+                step={1}
+                value={categoryForm.skuSequenceDigits}
+                onChange={(event) =>
+                  setCategoryForm((prev) => ({ ...prev, skuSequenceDigits: event.target.value }))
+                }
+                required
+              />
+            </div>
             <div className="button-row" style={{ alignItems: "end" }}>
               <button className="button primary" type="submit">
                 カテゴリ追加
               </button>
             </div>
           </form>
+
+          <div style={{ height: 1, background: "#e5e7eb", margin: "16px 0" }} />
+
+          <h3 style={{ margin: "0 0 10px", fontSize: 18 }}>カテゴリSKUルール更新</h3>
+          <form className="form-grid" onSubmit={handleUpdateCategoryRule}>
+            <div className="field">
+              <label htmlFor="category-rule-target">カテゴリ</label>
+              <select
+                id="category-rule-target"
+                className="select"
+                value={categoryRuleForm.categoryId}
+                onChange={(event) => handleCategoryRuleTargetChange(event.target.value)}
+                required
+              >
+                <option value="">選択してください</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.code} / {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="category-rule-prefix">SKUプレフィックス</label>
+              <input
+                id="category-rule-prefix"
+                className="input"
+                value={categoryRuleForm.skuPrefix}
+                onChange={(event) =>
+                  setCategoryRuleForm((prev) => ({ ...prev, skuPrefix: event.target.value.toUpperCase() }))
+                }
+                placeholder="未入力でカテゴリコードを利用"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="category-rule-digits">SKU連番桁数（3-6）</label>
+              <input
+                id="category-rule-digits"
+                className="input"
+                type="number"
+                min={3}
+                max={6}
+                step={1}
+                value={categoryRuleForm.skuSequenceDigits}
+                onChange={(event) =>
+                  setCategoryRuleForm((prev) => ({ ...prev, skuSequenceDigits: event.target.value }))
+                }
+                required
+              />
+            </div>
+            <div className="button-row" style={{ alignItems: "end" }}>
+              <button className="button secondary" type="submit">
+                SKUルール更新
+              </button>
+            </div>
+          </form>
+
+          <div className="table-wrap" style={{ marginTop: 12 }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>カテゴリコード</th>
+                  <th>カテゴリ名</th>
+                  <th>SKUプレフィックス</th>
+                  <th>連番桁数</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categories.map((category) => (
+                  <tr key={category.id}>
+                    <td>{category.code}</td>
+                    <td>{category.name}</td>
+                    <td>{category.skuPrefix ?? "-"}</td>
+                    <td>{category.skuSequenceDigits}</td>
+                  </tr>
+                ))}
+                {categories.length === 0 && (
+                  <tr>
+                    <td colSpan={4}>カテゴリがありません。</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
 

@@ -49,6 +49,8 @@ export type ProductCategory = {
   name: string;
   active: boolean;
   sortOrder: number;
+  skuPrefix: string | null;
+  skuSequenceDigits: number;
 };
 
 // 商品検索条件。

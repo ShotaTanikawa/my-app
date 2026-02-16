@@ -191,6 +191,21 @@ curl -X GET "http://localhost:8080/api/products/sku/next?categoryId=1" \
 {"sku":"FIGURE-GEAR-260216-0001"}
 ```
 
+### カテゴリSKUルール更新（ADMIN）
+
+```bash
+curl -X PUT http://localhost:8080/api/product-categories/1/sku-rule \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "skuPrefix": "FIG-PRO",
+    "skuSequenceDigits": 5
+  }'
+```
+
+- `skuPrefix`: 未指定時はカテゴリコードを利用
+- `skuSequenceDigits`: 3〜6
+
 ### 商品CSV一括取込（ADMIN）
 
 ```bash

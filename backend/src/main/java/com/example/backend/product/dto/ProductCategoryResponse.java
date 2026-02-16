@@ -8,7 +8,8 @@ public record ProductCategoryResponse(
         String code,
         String name,
         Boolean active,
-        Integer sortOrder
+        Integer sortOrder,
+        String skuPrefix,
+        Integer skuSequenceDigits
 ) {
 }
-

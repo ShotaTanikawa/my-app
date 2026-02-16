@@ -27,6 +27,12 @@ public class ProductCategory {
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder = 0;
 
+    @Column(name = "sku_prefix", length = 20)
+    private String skuPrefix;
+
+    @Column(name = "sku_sequence_digits", nullable = false)
+    private Integer skuSequenceDigits = 4;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -85,6 +91,22 @@ public class ProductCategory {
         this.sortOrder = sortOrder;
     }
 
+    public String getSkuPrefix() {
+        return skuPrefix;
+    }
+
+    public void setSkuPrefix(String skuPrefix) {
+        this.skuPrefix = skuPrefix;
+    }
+
+    public Integer getSkuSequenceDigits() {
+        return skuSequenceDigits;
+    }
+
+    public void setSkuSequenceDigits(Integer skuSequenceDigits) {
+        this.skuSequenceDigits = skuSequenceDigits;
+    }
+
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
@@ -93,4 +115,3 @@ public class ProductCategory {
         return updatedAt;
     }
 }
-
