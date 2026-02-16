@@ -9,6 +9,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+/**
+ * 定期的に在庫不足を監視してログ出力するジョブ。
+ */
 
 @Component
 public class LowStockReportJob {

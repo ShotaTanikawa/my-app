@@ -37,7 +37,9 @@ export default function ProductsPage() {
   });
 
   const role = state?.user.role;
+  // 商品マスタ変更はADMIN限定にする。
   const canManageProducts = role === "ADMIN";
+  // 在庫調整は現場オペレーションを考慮してOPERATORにも許可する。
   const canAdjustStock = role === "ADMIN" || role === "OPERATOR";
 
   const selectedProduct = useMemo(
@@ -57,6 +59,7 @@ export default function ProductsPage() {
       setError("");
 
       try {
+        // 初期表示時は商品と在庫を同時に取り込む。
         const data = await getProducts(currentCredentials!);
         if (mounted) {
           setProducts(data);
@@ -99,6 +102,7 @@ export default function ProductsPage() {
   }
 
   async function refreshProducts() {
+    // 作成/更新/在庫追加後に一覧を再取得して表示を同期する。
     const data = await getProducts(credentials!);
     setProducts(data);
   }
@@ -109,6 +113,7 @@ export default function ProductsPage() {
     setSuccess("");
 
     try {
+      // 入力値の余分な空白を除去してAPIへ送る。
       await createProduct(credentials!, {
         sku: createForm.sku.trim(),
         name: createForm.name.trim(),
@@ -155,6 +160,7 @@ export default function ProductsPage() {
     setSuccess("");
 
     try {
+      // 選択中商品の販売可能在庫を加算する。
       await addStock(credentials!, selectedProductId, stockQuantity);
       setSuccess("在庫を追加しました。");
       await refreshProducts();

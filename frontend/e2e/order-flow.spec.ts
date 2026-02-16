@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
+// 画面遷移を伴うログイン操作を共通化する。
 async function login(page: Page, username: string, password: string) {
   await page.goto("/login");
   await page.locator("#username").fill(username);
@@ -13,6 +14,7 @@ async function logout(page: Page) {
   await expect(page).toHaveURL(/\/login$/);
 }
 
+// SKU文字列で商品を選択し、optionのvalue(商品ID)をセットする。
 async function selectProductBySku(page: Page, sku: string) {
   const option = page.locator("#product-0 option", { hasText: sku }).first();
   await expect(page.locator("#product-0 option", { hasText: sku })).toHaveCount(1);
@@ -31,6 +33,7 @@ async function getOrderNumber(page: Page): Promise<string> {
   return orderNumber;
 }
 
+// 非同期で追記される監査ログ行をポーリングし、期待アクションの出現を待つ。
 async function expectAuditLogRow(
   page: Page,
   action: string,
@@ -62,6 +65,7 @@ async function expectAuditLogRow(
 }
 
 test.describe("Order operation flow", () => {
+  // 正常系: 商品作成〜受注確定までをロール跨ぎで確認する。
   test("admin creates product and stock, operator creates and confirms order", async ({ page }) => {
     const token = Date.now().toString();
     const sku = `E2E-${token}`;
@@ -108,6 +112,7 @@ test.describe("Order operation flow", () => {
     await expect(page.getByRole("button", { name: "受注確定" })).toHaveCount(0);
   });
 
+  // 正常系: 受注キャンセル時の状態遷移を確認する。
   test("operator creates and cancels order", async ({ page }) => {
     const token = (Date.now() + 1).toString();
     const sku = `E2E-CANCEL-${token}`;
@@ -148,6 +153,7 @@ test.describe("Order operation flow", () => {
     await expect(page.getByRole("button", { name: "受注キャンセル" })).toHaveCount(0);
   });
 
+  // 監査系: ドメイン操作後に監査ログ画面で痕跡が参照できることを確認する。
   test("admin can inspect audit logs after operator order confirmation", async ({ page }) => {
     const token = `${Date.now()}-audit`;
     const sku = `E2E-AUDIT-${token}`;

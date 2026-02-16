@@ -6,6 +6,9 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 
 import java.util.List;
+/**
+ * APIの入力値を受け取るリクエストモデル。
+ */
 
 public record CreateSalesOrderRequest(
         @NotBlank @Size(max = 150) String customerName,

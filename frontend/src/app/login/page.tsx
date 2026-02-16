@@ -15,10 +15,12 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    // 認証情報の復元が終わるまで判定しない。
     if (!isHydrated) {
       return;
     }
 
+    // 既ログインの場合はログイン画面を経由させない。
     if (state) {
       router.replace("/dashboard");
     }
@@ -30,6 +32,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
+      // 認証成功時にAuthProvider側へトークンを保存する。
       await login(username, password);
       router.replace("/dashboard");
     } catch (err) {

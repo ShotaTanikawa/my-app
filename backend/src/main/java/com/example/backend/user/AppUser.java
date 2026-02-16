@@ -3,6 +3,9 @@ package com.example.backend.user;
 import jakarta.persistence.*;
 
 import java.time.OffsetDateTime;
+/**
+ * DBテーブルに対応する永続化エンティティ。
+ */
 
 @Entity
 @Table(name = "app_users")

@@ -19,6 +19,7 @@ export default function OrderDetailPage() {
   const orderId = Number(params.id);
 
   const role = state?.user.role;
+  // 受注確定/キャンセル操作はADMIN/OPERATORのみに制限する。
   const canOperate = role === "ADMIN" || role === "OPERATOR";
   const credentials = state?.credentials;
 
@@ -27,6 +28,7 @@ export default function OrderDetailPage() {
       return 0;
     }
 
+    // 明細の数量×単価を合算して合計金額を算出する。
     return order.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   }, [order]);
 
@@ -41,6 +43,7 @@ export default function OrderDetailPage() {
       setError("");
 
       try {
+        // URLの受注IDに対応する詳細を取得する。
         const data = await getOrder(currentCredentials!, orderId);
         if (mounted) {
           setOrder(data);
@@ -80,6 +83,7 @@ export default function OrderDetailPage() {
     setIsUpdating(true);
 
     try {
+      // RESERVED -> CONFIRMED の遷移を実行する。
       const updated = await confirmOrder(credentials!, order.id);
       setOrder(updated);
     } catch (err) {
@@ -98,6 +102,7 @@ export default function OrderDetailPage() {
     setIsUpdating(true);
 
     try {
+      // RESERVED -> CANCELLED の遷移を実行する。
       const updated = await cancelOrder(credentials!, order.id);
       setOrder(updated);
     } catch (err) {

@@ -4,6 +4,9 @@ import com.example.backend.user.AppUser;
 import jakarta.persistence.*;
 
 import java.time.OffsetDateTime;
+/**
+ * DBテーブルに対応する永続化エンティティ。
+ */
 
 @Entity
 @Table(name = "refresh_tokens")

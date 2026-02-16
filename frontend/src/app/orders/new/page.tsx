@@ -23,6 +23,7 @@ export default function NewOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const role = state?.user.role;
+  // 受注入力はADMIN/OPERATORのみ許可する。
   const canOperate = role === "ADMIN" || role === "OPERATOR";
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export default function NewOrderPage() {
 
     async function loadProducts() {
       try {
+        // 明細選択用に商品一覧を取得する。
         const data = await getProducts(currentCredentials!);
         if (mounted) {
           setProducts(data);
@@ -66,14 +68,17 @@ export default function NewOrderPage() {
   }
 
   function addItemRow() {
+    // 明細行を末尾に追加する。
     setItems((prev) => [...prev, { productId: "", quantity: "1" }]);
   }
 
   function removeItemRow(index: number) {
+    // 指定行のみ取り除いて再計算する。
     setItems((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
   }
 
   function updateItem(index: number, key: keyof LineItem, value: string) {
+    // 不変更新で対象行のみ差し替える。
     setItems((prev) =>
       prev.map((item, itemIndex) => {
         if (itemIndex !== index) {
@@ -102,6 +107,7 @@ export default function NewOrderPage() {
       }))
       .filter((item) => item.productId > 0 && item.quantity > 0);
 
+    // 不正行を除外した結果が空なら送信しない。
     if (parsedItems.length === 0) {
       setError("明細を1件以上入力してください。");
       return;

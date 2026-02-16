@@ -7,6 +7,7 @@ import type { SalesOrder } from "@/types/api";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+// 在庫注意の基準値は環境変数で調整できるようにする。
 const LOW_STOCK_THRESHOLD = Number(process.env.NEXT_PUBLIC_LOW_STOCK_THRESHOLD ?? 10);
 
 export default function DashboardPage() {
@@ -31,6 +32,7 @@ export default function DashboardPage() {
       setError("");
 
       try {
+        // ダッシュボードの指標をまとめて取得し、待ち時間を短縮する。
         const [products, allOrders] = await Promise.all([
           getProducts(currentCredentials!),
           getOrders(currentCredentials!),
@@ -65,6 +67,7 @@ export default function DashboardPage() {
   }, [credentials]);
 
   const reservedOrderCount = useMemo(
+    // 直近取得分から要対応の受注件数を算出する。
     () => orders.filter((order) => order.status === "RESERVED").length,
     [orders],
   );

@@ -7,6 +7,9 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+/**
+ * JPA経由で永続化データへアクセスするリポジトリ。
+ */
 
 public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
 

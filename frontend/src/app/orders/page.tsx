@@ -27,6 +27,7 @@ export default function OrdersPage() {
       setError("");
 
       try {
+        // 一覧表示用に受注データをまとめて取得する。
         const data = await getOrders(currentCredentials!);
         if (mounted) {
           setOrders(data);
@@ -55,6 +56,7 @@ export default function OrdersPage() {
     return null;
   }
 
+  // 受注作成は管理者/オペレータのみを許可する。
   const canOperate = state.user.role === "ADMIN" || state.user.role === "OPERATOR";
 
   return (

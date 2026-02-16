@@ -8,6 +8,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+/**
+ * HTTPリクエストを受けてユースケースを公開するコントローラ。
+ */
 
 @RestController
 @RequestMapping("/api/audit-logs")

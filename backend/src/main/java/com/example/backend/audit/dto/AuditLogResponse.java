@@ -1,6 +1,9 @@
 package com.example.backend.audit.dto;
 
 import java.time.OffsetDateTime;
+/**
+ * APIレスポンスとして返す出力モデル。
+ */
 
 public record AuditLogResponse(
         Long id,

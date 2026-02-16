@@ -10,10 +10,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
+    // 復元完了後にのみガード判定を実行する。
     if (!isHydrated) {
       return;
     }
 
+    // 非ログイン状態で保護ページに来た場合はログインへ送る。
     if (!state && pathname !== "/login") {
       router.replace("/login");
     }

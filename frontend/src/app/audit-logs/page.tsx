@@ -16,6 +16,7 @@ export default function AuditLogsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    // 監査ログ閲覧はADMINのみ許可する。
     if (role !== "ADMIN" || !credentials) {
       return;
     }
@@ -26,6 +27,7 @@ export default function AuditLogsPage() {
       setLoading(true);
       setError("");
       try {
+        // 画面表示コストと可読性のバランスを取り、最新200件を取得する。
         const data = await getAuditLogs(currentCredentials, 200);
         if (mounted) {
           setLogs(data);

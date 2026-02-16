@@ -4,6 +4,9 @@ import com.example.backend.product.Product;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
+/**
+ * DBテーブルに対応する永続化エンティティ。
+ */
 
 @Entity
 @Table(name = "sales_order_items")

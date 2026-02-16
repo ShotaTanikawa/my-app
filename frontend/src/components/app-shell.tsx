@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { state, logout } = useAuth();
+  // 権限に応じてナビゲーション項目を出し分ける。
   const navItems = [
     { href: "/dashboard", label: "Dashboard" },
     { href: "/products", label: "Products" },
@@ -15,6 +16,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   ];
 
   if (pathname === "/login") {
+    // ログイン画面では共通シェルを表示しない。
     return <>{children}</>;
   }
 

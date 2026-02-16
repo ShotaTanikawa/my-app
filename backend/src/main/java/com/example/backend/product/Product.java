@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+/**
+ * DBテーブルに対応する永続化エンティティ。
+ */
 
 @Entity
 @Table(name = "products")

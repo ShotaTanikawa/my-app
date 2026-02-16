@@ -5,6 +5,9 @@ import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * DBテーブルに対応する永続化エンティティ。
+ */
 
 @Entity
 @Table(name = "sales_orders")

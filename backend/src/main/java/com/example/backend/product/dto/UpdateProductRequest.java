@@ -6,6 +6,9 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+/**
+ * APIの入力値を受け取るリクエストモデル。
+ */
 
 public record UpdateProductRequest(
         @NotBlank @Size(max = 200) String name,

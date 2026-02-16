@@ -2,6 +2,9 @@ package com.example.backend.inventory;
 
 import com.example.backend.product.Product;
 import jakarta.persistence.*;
+/**
+ * DBテーブルに対応する永続化エンティティ。
+ */
 
 @Entity
 @Table(name = "inventories")

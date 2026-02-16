@@ -10,6 +10,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+/**
+ * ドメインルールと業務処理をまとめるサービス。
+ */
 
 @Service
 public class AuditLogService {

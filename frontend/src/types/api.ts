@@ -1,10 +1,13 @@
+// フロントで扱うユーザーロールの集合。
 export type UserRole = "ADMIN" | "OPERATOR" | "VIEWER";
 
+// 現在ユーザー情報。
 export type MeResponse = {
   username: string;
   role: UserRole;
 };
 
+// ログイン/リフレッシュ時のトークン応答。
 export type LoginResponse = {
   accessToken: string;
   tokenType: string;
@@ -13,6 +16,7 @@ export type LoginResponse = {
   user: MeResponse;
 };
 
+// 商品と在庫の結合ビュー。
 export type Product = {
   id: number;
   sku: string;
@@ -23,6 +27,7 @@ export type Product = {
   reservedQuantity: number;
 };
 
+// 受注明細1行分。
 export type SalesOrderItem = {
   productId: number;
   sku: string;
@@ -31,6 +36,7 @@ export type SalesOrderItem = {
   unitPrice: number;
 };
 
+// 受注ヘッダと明細の集約モデル。
 export type SalesOrder = {
   id: number;
   orderNumber: string;
@@ -40,6 +46,7 @@ export type SalesOrder = {
   items: SalesOrderItem[];
 };
 
+// 監査ログ1件分。
 export type AuditLog = {
   id: number;
   actorUsername: string;
@@ -51,6 +58,7 @@ export type AuditLog = {
   createdAt: string;
 };
 
+// バックエンド統一エラーペイロード。
 export type ApiErrorPayload = {
   timestamp: string;
   status: number;

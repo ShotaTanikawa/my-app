@@ -16,6 +16,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+/**
+ * JWTを検証してSecurityContextへ認証情報を設定するフィルタ。
+ */
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {

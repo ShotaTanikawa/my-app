@@ -3,6 +3,9 @@ package com.example.backend.audit;
 import jakarta.persistence.*;
 
 import java.time.OffsetDateTime;
+/**
+ * DBテーブルに対応する永続化エンティティ。
+ */
 
 @Entity
 @Table(name = "audit_logs")

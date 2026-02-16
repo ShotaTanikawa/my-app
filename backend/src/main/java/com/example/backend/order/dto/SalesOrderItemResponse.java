@@ -1,6 +1,9 @@
 package com.example.backend.order.dto;
 
 import java.math.BigDecimal;
+/**
+ * APIレスポンスとして返す出力モデル。
+ */
 
 public record SalesOrderItemResponse(
         Long productId,
