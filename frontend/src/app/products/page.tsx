@@ -8,15 +8,21 @@ import {
   getProducts,
   getProductCategories,
   getProductsPage,
+  importProductsCsv,
   updateProduct,
 } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
-import type { Product, ProductCategory } from "@/types/api";
+import type { Product, ProductCategory, ProductImportResult } from "@/types/api";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 const PAGE_SIZE = 20;
 const DEFAULT_REORDER_POINT = 5;
 const DEFAULT_REORDER_QUANTITY = 10;
+const PRODUCT_IMPORT_TEMPLATE_CSV = [
+  "sku,name,categoryCode,unitPrice,availableQuantity,description",
+  "IH-STICK-001,ホッケースティック,SKATE_GEAR,18000,12,エントリーモデル",
+  "FS-BOOT-001,フィギュアスケートブーツ,FIGURE_GEAR,42000,5,初中級向け",
+].join("\n");
 
 type ProductFilterState = {
   q: string;
@@ -96,6 +102,8 @@ export default function ProductsPage() {
     code: "",
     name: "",
   });
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importResult, setImportResult] = useState<ProductImportResult | null>(null);
 
   const role = state?.user.role;
   // 商品マスタ変更はADMIN限定にする。
@@ -263,6 +271,7 @@ export default function ProductsPage() {
         unitPrice: "",
         categoryId: "",
       });
+      setImportResult(null);
       setSuccess("商品を作成しました。");
       await refreshProducts();
     } catch (err) {
@@ -286,6 +295,7 @@ export default function ProductsPage() {
         unitPrice: Number(editForm.unitPrice),
         categoryId: editForm.categoryId ? Number(editForm.categoryId) : undefined,
       });
+      setImportResult(null);
       setSuccess("商品を更新しました。");
       await refreshProducts();
     } catch (err) {
@@ -305,6 +315,7 @@ export default function ProductsPage() {
     try {
       // 選択中商品の販売可能在庫を加算する。
       await addStock(credentials!, selectedProductId, stockQuantity);
+      setImportResult(null);
       setSuccess("在庫を追加しました。");
       await refreshProducts();
     } catch (err) {
@@ -323,6 +334,7 @@ export default function ProductsPage() {
         name: categoryForm.name.trim(),
       });
       setCategoryForm({ code: "", name: "" });
+      setImportResult(null);
       setSuccess("カテゴリを作成しました。");
       await refreshCategories();
     } catch (err) {
@@ -340,6 +352,42 @@ export default function ProductsPage() {
     setDraftFilters(EMPTY_FILTERS);
     setFilters(EMPTY_FILTERS);
     setPage(0);
+  }
+
+  function handleDownloadImportTemplate() {
+    const blob = new Blob([PRODUCT_IMPORT_TEMPLATE_CSV], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "products-import-template.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleImportProductsCsv(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (!importFile) {
+      setError("CSVファイルを選択してください。");
+      return;
+    }
+
+    try {
+      const result = await importProductsCsv(credentials!, importFile);
+      setImportResult(result);
+      setSuccess(
+        `CSV取込が完了しました。（成功 ${result.successRows}件 / 失敗 ${result.failedRows}件）`,
+      );
+      setImportFile(null);
+      event.currentTarget.reset();
+      await refreshProducts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "CSV取込に失敗しました。");
+    }
   }
 
   return (
@@ -706,6 +754,70 @@ export default function ProductsPage() {
               </button>
             </div>
           </form>
+        </section>
+      )}
+
+      {canManageProducts && (
+        <section className="card">
+          <div className="button-row" style={{ justifyContent: "space-between", marginBottom: 10 }}>
+            <h2>商品CSV一括取込（ADMIN）</h2>
+            <button className="button secondary" type="button" onClick={handleDownloadImportTemplate}>
+              テンプレートDL
+            </button>
+          </div>
+          <p style={{ margin: "0 0 12px", color: "#607086" }}>
+            必須列: <code>sku,name,unitPrice,availableQuantity</code>。任意列:{" "}
+            <code>categoryCode,description</code>。SKU一致時は更新、未登録SKUは新規作成します。
+          </p>
+
+          <form className="form-grid" onSubmit={handleImportProductsCsv}>
+            <div className="field">
+              <label htmlFor="product-import-file">CSVファイル</label>
+              <input
+                id="product-import-file"
+                className="input"
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+                required
+              />
+            </div>
+            <div className="button-row" style={{ alignItems: "end" }}>
+              <button className="button primary" type="submit">
+                取込実行
+              </button>
+            </div>
+          </form>
+
+          {importResult && (
+            <div style={{ marginTop: 14 }}>
+              <p style={{ margin: "0 0 8px", color: "#1f2937" }}>
+                対象{importResult.totalRows}件 / 成功{importResult.successRows}件 / 新規
+                {importResult.createdRows}件 / 更新{importResult.updatedRows}件 / 失敗
+                {importResult.failedRows}件
+              </p>
+              {importResult.errors.length > 0 && (
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>行番号</th>
+                        <th>エラー内容</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importResult.errors.map((item) => (
+                        <tr key={`${item.rowNumber}-${item.message}`}>
+                          <td>{item.rowNumber}</td>
+                          <td>{item.message}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </section>
       )}
     </div>

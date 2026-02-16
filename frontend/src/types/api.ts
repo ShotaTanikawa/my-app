@@ -71,6 +71,22 @@ export type ProductPageResponse = {
   hasPrevious: boolean;
 };
 
+// 商品CSV一括取込の行エラー。
+export type ProductImportError = {
+  rowNumber: number;
+  message: string;
+};
+
+// 商品CSV一括取込の実行結果。
+export type ProductImportResult = {
+  totalRows: number;
+  successRows: number;
+  createdRows: number;
+  updatedRows: number;
+  failedRows: number;
+  errors: ProductImportError[];
+};
+
 // 受注明細1行分。
 export type SalesOrderItem = {
   productId: number;

@@ -8,6 +8,7 @@ import type {
   MeResponse,
   Product,
   ProductCategory,
+  ProductImportResult,
   ProductPageResponse,
   ProductQuery,
   ProductSupplierContract,
@@ -159,6 +160,38 @@ export async function createProductCategory(
   },
 ): Promise<ProductCategory> {
   return request<ProductCategory>("/api/product-categories", { method: "POST", credentials, body });
+}
+
+export async function importProductsCsv(
+  credentials: Credentials,
+  file: File,
+): Promise<ProductImportResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_BASE_URL}/api/products/import`, {
+    method: "POST",
+    headers: {
+      Authorization: toBearerAuthHeader(credentials.accessToken),
+    },
+    body: formData,
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let message = "CSV import failed";
+
+    try {
+      const payload = (await response.json()) as Partial<ApiErrorPayload>;
+      message = payload.message ?? message;
+    } catch {
+      message = response.statusText || message;
+    }
+
+    throw new ApiClientError(message, response.status);
+  }
+
+  return (await response.json()) as ProductImportResult;
 }
 
 export async function createProduct(

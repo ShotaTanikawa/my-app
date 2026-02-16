@@ -2,13 +2,16 @@ package com.example.backend.product;
 
 import com.example.backend.product.dto.AdjustStockRequest;
 import com.example.backend.product.dto.CreateProductRequest;
+import com.example.backend.product.dto.ProductImportResultResponse;
 import com.example.backend.product.dto.ProductPageResponse;
 import com.example.backend.product.dto.ProductResponse;
 import com.example.backend.product.dto.UpdateProductRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 /**
@@ -47,6 +50,12 @@ public class ProductController {
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','VIEWER')")
     public ProductResponse getProduct(@PathVariable Long productId) {
         return productService.getProduct(productId);
+    }
+
+    @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
+    public ProductImportResultResponse importProducts(@RequestPart("file") MultipartFile file) {
+        return productService.importProductsCsv(file);
     }
 
     @PostMapping

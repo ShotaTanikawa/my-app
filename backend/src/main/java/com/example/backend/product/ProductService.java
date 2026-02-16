@@ -6,10 +6,14 @@ import com.example.backend.common.ResourceNotFoundException;
 import com.example.backend.inventory.Inventory;
 import com.example.backend.inventory.InventoryRepository;
 import com.example.backend.product.dto.CreateProductRequest;
+import com.example.backend.product.dto.ProductImportErrorResponse;
+import com.example.backend.product.dto.ProductImportResultResponse;
 import com.example.backend.product.dto.ProductPageResponse;
 import com.example.backend.product.dto.ProductResponse;
 import com.example.backend.product.dto.UpdateProductRequest;
 import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Expression;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -18,14 +22,24 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import jakarta.persistence.criteria.Expression;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 public class ProductService {
+
+    private static final int DEFAULT_IMPORT_REORDER_POINT = 5;
+    private static final int DEFAULT_IMPORT_REORDER_QUANTITY = 10;
+    private static final String ACTION_PRODUCT_IMPORT = "PRODUCT_IMPORT";
 
     private final ProductRepository productRepository;
     private final ProductCategoryRepository productCategoryRepository;
@@ -168,6 +182,75 @@ public class ProductService {
         return toResponse(product, updatedInventory);
     }
 
+    @Transactional
+    public ProductImportResultResponse importProductsCsv(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessRuleException("CSVファイルが空です。");
+        }
+
+        List<ProductImportErrorResponse> errors = new ArrayList<>();
+        int totalRows = 0;
+        int successRows = 0;
+        int createdRows = 0;
+        int updatedRows = 0;
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+            String headerLine = reader.readLine();
+            if (headerLine == null || headerLine.isBlank()) {
+                throw new BusinessRuleException("CSVヘッダ行が見つかりません。");
+            }
+
+            Map<String, Integer> headerIndexMap = buildHeaderIndex(headerLine);
+            validateImportHeaders(headerIndexMap);
+
+            String line;
+            int rowNumber = 1;
+            while ((line = reader.readLine()) != null) {
+                rowNumber++;
+                if (line.isBlank()) {
+                    continue;
+                }
+                totalRows++;
+
+                try {
+                    ImportRow row = parseImportRow(line, rowNumber, headerIndexMap);
+                    boolean created = upsertFromImportRow(row);
+                    successRows++;
+                    if (created) {
+                        createdRows++;
+                    } else {
+                        updatedRows++;
+                    }
+                } catch (RuntimeException ex) {
+                    String message = ex.getMessage() == null ? "不明なエラー" : ex.getMessage();
+                    if (!message.startsWith("row ")) {
+                        message = "row " + rowNumber + ": " + message;
+                    }
+                    errors.add(new ProductImportErrorResponse(rowNumber, message));
+                }
+            }
+        } catch (IOException ex) {
+            throw new BusinessRuleException("CSVファイルの読み込みに失敗しました。");
+        }
+
+        auditLogService.log(
+                ACTION_PRODUCT_IMPORT,
+                "PRODUCT",
+                "BULK",
+                "totalRows=" + totalRows + ", successRows=" + successRows + ", createdRows=" + createdRows
+                        + ", updatedRows=" + updatedRows + ", failedRows=" + errors.size()
+        );
+
+        return new ProductImportResultResponse(
+                totalRows,
+                successRows,
+                createdRows,
+                updatedRows,
+                errors.size(),
+                List.copyOf(errors)
+        );
+    }
+
     private Product findProductById(Long productId) {
         return productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + productId));
@@ -249,5 +332,162 @@ public class ProductService {
             return 0;
         }
         return value;
+    }
+
+    private boolean upsertFromImportRow(ImportRow row) {
+        ProductCategory category = resolveCategoryByCode(row.categoryCode());
+        Optional<Product> existing = productRepository.findBySku(row.sku());
+        boolean created = existing.isEmpty();
+
+        Product product = existing.orElseGet(Product::new);
+        if (created) {
+            product.setSku(row.sku());
+            product.setReorderPoint(DEFAULT_IMPORT_REORDER_POINT);
+            product.setReorderQuantity(DEFAULT_IMPORT_REORDER_QUANTITY);
+        }
+        product.setName(row.name());
+        product.setDescription(row.description());
+        product.setUnitPrice(row.unitPrice());
+        product.setCategory(category);
+
+        Product savedProduct = productRepository.save(product);
+        Inventory inventory = inventoryRepository.findByProductId(savedProduct.getId())
+                .orElseGet(() -> {
+                    Inventory newInventory = new Inventory();
+                    newInventory.setProduct(savedProduct);
+                    newInventory.setReservedQuantity(0);
+                    newInventory.setAvailableQuantity(0);
+                    return newInventory;
+                });
+        inventory.setAvailableQuantity(row.availableQuantity());
+        if (inventory.getReservedQuantity() == null) {
+            inventory.setReservedQuantity(0);
+        }
+        inventoryRepository.save(inventory);
+        return created;
+    }
+
+    private ProductCategory resolveCategoryByCode(String categoryCode) {
+        if (categoryCode == null || categoryCode.isBlank()) {
+            return null;
+        }
+        return productCategoryRepository.findByCode(categoryCode)
+                .orElseThrow(() -> new BusinessRuleException("カテゴリコードが存在しません: " + categoryCode));
+    }
+
+    private Map<String, Integer> buildHeaderIndex(String headerLine) {
+        List<String> headers = parseCsvLine(headerLine);
+        Map<String, Integer> headerIndexMap = new HashMap<>();
+        for (int i = 0; i < headers.size(); i++) {
+            headerIndexMap.put(normalizeHeader(headers.get(i)), i);
+        }
+        return headerIndexMap;
+    }
+
+    private void validateImportHeaders(Map<String, Integer> headerIndexMap) {
+        List<String> requiredHeaders = List.of("sku", "name", "unitprice", "availablequantity");
+        List<String> missing = requiredHeaders.stream()
+                .filter(header -> !headerIndexMap.containsKey(header))
+                .toList();
+        if (!missing.isEmpty()) {
+            throw new BusinessRuleException("CSVヘッダ不足: " + String.join(", ", missing));
+        }
+    }
+
+    private ImportRow parseImportRow(String line, int rowNumber, Map<String, Integer> headerIndexMap) {
+        List<String> cells = parseCsvLine(line);
+        String sku = readCell(cells, headerIndexMap, "sku");
+        String name = readCell(cells, headerIndexMap, "name");
+        String unitPriceValue = readCell(cells, headerIndexMap, "unitprice");
+        String availableQuantityValue = readCell(cells, headerIndexMap, "availablequantity");
+        String categoryCode = readCell(cells, headerIndexMap, "categorycode");
+        String description = readCell(cells, headerIndexMap, "description");
+
+        if (sku.isBlank()) {
+            throw new BusinessRuleException("row " + rowNumber + ": sku が空です。");
+        }
+        if (name.isBlank()) {
+            throw new BusinessRuleException("row " + rowNumber + ": name が空です。");
+        }
+
+        BigDecimal unitPrice;
+        try {
+            unitPrice = new BigDecimal(unitPriceValue);
+        } catch (NumberFormatException ex) {
+            throw new BusinessRuleException("row " + rowNumber + ": unitPrice が不正です。");
+        }
+        if (unitPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessRuleException("row " + rowNumber + ": unitPrice は0より大きい値を指定してください。");
+        }
+
+        int availableQuantity;
+        try {
+            availableQuantity = Integer.parseInt(availableQuantityValue);
+        } catch (NumberFormatException ex) {
+            throw new BusinessRuleException("row " + rowNumber + ": availableQuantity が不正です。");
+        }
+        if (availableQuantity < 0) {
+            throw new BusinessRuleException("row " + rowNumber + ": availableQuantity は0以上を指定してください。");
+        }
+
+        return new ImportRow(
+                sku,
+                name,
+                description.isBlank() ? null : description,
+                unitPrice,
+                availableQuantity,
+                categoryCode.isBlank() ? null : categoryCode
+        );
+    }
+
+    private String normalizeHeader(String header) {
+        return header.replace("\uFEFF", "").trim().toLowerCase();
+    }
+
+    private String readCell(List<String> cells, Map<String, Integer> headerIndexMap, String headerName) {
+        Integer index = headerIndexMap.get(headerName);
+        if (index == null || index < 0 || index >= cells.size()) {
+            return "";
+        }
+        return cells.get(index).trim();
+    }
+
+    private List<String> parseCsvLine(String line) {
+        List<String> values = new ArrayList<>();
+        StringBuilder currentValue = new StringBuilder();
+        boolean inQuotes = false;
+
+        for (int i = 0; i < line.length(); i++) {
+            char ch = line.charAt(i);
+
+            if (ch == '"') {
+                if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                    currentValue.append('"');
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+                continue;
+            }
+
+            if (ch == ',' && !inQuotes) {
+                values.add(currentValue.toString());
+                currentValue.setLength(0);
+                continue;
+            }
+            currentValue.append(ch);
+        }
+        values.add(currentValue.toString());
+        return values;
+    }
+
+    private record ImportRow(
+            String sku,
+            String name,
+            String description,
+            BigDecimal unitPrice,
+            Integer availableQuantity,
+            String categoryCode
+    ) {
     }
 }

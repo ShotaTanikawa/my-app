@@ -178,6 +178,20 @@ curl -X POST http://localhost:8080/api/products \
   }'
 ```
 
+### 商品CSV一括取込（ADMIN）
+
+```bash
+curl -X POST http://localhost:8080/api/products/import \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -F "file=@./products-import.csv"
+```
+
+CSV列:
+
+- 必須: `sku`, `name`, `unitPrice`, `availableQuantity`
+- 任意: `categoryCode`, `description`
+- 挙動: `sku`一致時は更新、未登録`sku`は新規作成
+
 ### 在庫追加（ADMIN/OPERATOR）
 
 ```bash
