@@ -229,9 +229,17 @@ curl -X GET "http://localhost:8080/api/audit-logs?page=0&size=50&action=ORDER_CR
   -H "Authorization: Bearer ${TOKEN}"
 ```
 
+### 監査ログCSV出力（ADMIN）
+
+```bash
+curl -X GET "http://localhost:8080/api/audit-logs/export.csv?action=ORDER_CREATE&actor=operator&limit=1000" \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -o audit-logs.csv
+```
+
 ## 今後の拡張候補
 
-- 監査ログのCSVエクスポート
+- 監査ログ条件のプリセット保存
 - CSV一括取込
 - 日次バッチ（在庫レポート）
-- UI/UX改善（絞り込み条件のプリセット保存）
+- UI/UX改善（監査ログ条件の保存・共有）

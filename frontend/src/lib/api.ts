@@ -192,4 +192,48 @@ export async function getAuditLogs(
   return request<AuditLogPageResponse>(`/api/audit-logs?${searchParams.toString()}`, { credentials });
 }
 
+export async function exportAuditLogsCsv(
+  credentials: Credentials,
+  query: AuditLogQuery = {},
+): Promise<Blob> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("limit", String(query.limit ?? 1000));
+
+  if (query.action) {
+    searchParams.set("action", query.action);
+  }
+  if (query.actor) {
+    searchParams.set("actor", query.actor);
+  }
+  if (query.from) {
+    searchParams.set("from", query.from);
+  }
+  if (query.to) {
+    searchParams.set("to", query.to);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/audit-logs/export.csv?${searchParams.toString()}`, {
+    method: "GET",
+    headers: {
+      Authorization: toBearerAuthHeader(credentials.accessToken),
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let message = "CSV export failed";
+
+    try {
+      const payload = (await response.json()) as Partial<ApiErrorPayload>;
+      message = payload.message ?? message;
+    } catch {
+      message = response.statusText || message;
+    }
+
+    throw new ApiClientError(message, response.status);
+  }
+
+  return response.blob();
+}
+
 export type { Credentials };

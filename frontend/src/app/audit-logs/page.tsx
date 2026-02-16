@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/components/auth-provider";
-import { getAuditLogs } from "@/lib/api";
+import { exportAuditLogsCsv, getAuditLogs } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import type { AuditLog } from "@/types/api";
 import { FormEvent, useEffect, useState } from "react";
@@ -36,6 +36,7 @@ export default function AuditLogsPage() {
   const [draftActor, setDraftActor] = useState("");
   const [actionFilter, setActionFilter] = useState("");
   const [actorFilter, setActorFilter] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     // 監査ログ閲覧はADMINのみ許可する。
@@ -111,6 +112,36 @@ export default function AuditLogsPage() {
     setPage(0);
   }
 
+  async function handleExportCsv() {
+    const currentCredentials = credentials;
+    if (!currentCredentials) {
+      return;
+    }
+
+    setError("");
+    setIsExporting(true);
+    try {
+      const blob = await exportAuditLogsCsv(currentCredentials, {
+        action: actionFilter || undefined,
+        actor: actorFilter || undefined,
+        limit: 2000,
+      });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      anchor.href = url;
+      anchor.download = `audit-logs-${timestamp}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "CSV出力に失敗しました。");
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   return (
     <div className="page">
       <section className="card">
@@ -154,6 +185,14 @@ export default function AuditLogsPage() {
             </button>
             <button className="button secondary" type="button" onClick={handleClear} disabled={loading}>
               クリア
+            </button>
+            <button
+              className="button secondary"
+              type="button"
+              onClick={handleExportCsv}
+              disabled={loading || isExporting}
+            >
+              {isExporting ? "出力中..." : "CSV出力"}
             </button>
           </div>
         </form>

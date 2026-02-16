@@ -47,29 +47,7 @@ public class AuditLogService {
                 Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))
         );
 
-        Specification<AuditLog> specification = (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
-
-        if (action != null && !action.isBlank()) {
-            String normalizedAction = action.trim();
-            specification = specification.and((root, query, criteriaBuilder) ->
-                    criteriaBuilder.equal(root.get("action"), normalizedAction));
-        }
-
-        if (actor != null && !actor.isBlank()) {
-            String likePattern = "%" + actor.trim().toLowerCase() + "%";
-            specification = specification.and((root, query, criteriaBuilder) ->
-                    criteriaBuilder.like(criteriaBuilder.lower(root.get("actorUsername")), likePattern));
-        }
-
-        if (from != null) {
-            specification = specification.and((root, query, criteriaBuilder) ->
-                    criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), from));
-        }
-
-        if (to != null) {
-            specification = specification.and((root, query, criteriaBuilder) ->
-                    criteriaBuilder.lessThanOrEqualTo(root.get("createdAt"), to));
-        }
+        Specification<AuditLog> specification = buildSpecification(action, actor, from, to);
 
         Page<AuditLogResponse> pageResult = auditLogRepository.findAll(specification, pageable)
                 .map(this::toResponse);
@@ -83,6 +61,26 @@ public class AuditLogService {
                 pageResult.hasNext(),
                 pageResult.hasPrevious()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public List<AuditLogResponse> getLogsForExport(
+            String action,
+            String actor,
+            OffsetDateTime from,
+            OffsetDateTime to,
+            int limit
+    ) {
+        int safeLimit = Math.max(1, Math.min(limit, 5000));
+        PageRequest pageable = PageRequest.of(
+                0,
+                safeLimit,
+                Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))
+        );
+
+        return auditLogRepository.findAll(buildSpecification(action, actor, from, to), pageable).stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -121,6 +119,39 @@ public class AuditLogService {
         auditLog.setTargetId(targetId);
         auditLog.setDetail(detail);
         auditLogRepository.save(auditLog);
+    }
+
+    private Specification<AuditLog> buildSpecification(
+            String action,
+            String actor,
+            OffsetDateTime from,
+            OffsetDateTime to
+    ) {
+        Specification<AuditLog> specification = (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
+
+        if (action != null && !action.isBlank()) {
+            String normalizedAction = action.trim();
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.equal(root.get("action"), normalizedAction));
+        }
+
+        if (actor != null && !actor.isBlank()) {
+            String likePattern = "%" + actor.trim().toLowerCase() + "%";
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.like(criteriaBuilder.lower(root.get("actorUsername")), likePattern));
+        }
+
+        if (from != null) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), from));
+        }
+
+        if (to != null) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.lessThanOrEqualTo(root.get("createdAt"), to));
+        }
+
+        return specification;
     }
 
     private Actor resolveActorFromContext() {

@@ -114,6 +114,47 @@ class AuditLogIntegrationTest {
                                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
                 )
                 .andExpect(status().isForbidden());
+
+        mockMvc.perform(
+                        get("/api/audit-logs/export.csv")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
+                )
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminCanExportAuditLogsAsCsv() throws Exception {
+        String adminToken = login("admin", "admin123");
+
+        mockMvc.perform(
+                        post("/api/products")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(Map.of(
+                                        "sku", "AUDIT-CSV-" + System.currentTimeMillis(),
+                                        "name", "Audit Csv Product",
+                                        "unitPrice", 1700
+                                )))
+                )
+                .andExpect(status().isCreated());
+
+        MvcResult csvResult = mockMvc.perform(
+                        get("/api/audit-logs/export.csv")
+                                .param("action", "PRODUCT_CREATE")
+                                .param("limit", "100")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                )
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String contentType = csvResult.getResponse().getContentType();
+        String disposition = csvResult.getResponse().getHeader(HttpHeaders.CONTENT_DISPOSITION);
+        String csvBody = csvResult.getResponse().getContentAsString();
+
+        assertTrue(contentType != null && contentType.startsWith("text/csv"), "content type should be text/csv");
+        assertTrue(disposition != null && disposition.contains("audit-logs.csv"), "filename should be set");
+        assertTrue(csvBody.startsWith("createdAt,actorUsername,actorRole,action,targetType,targetId,detail"));
+        assertTrue(csvBody.contains("\"PRODUCT_CREATE\""), "csv should contain PRODUCT_CREATE action");
     }
 
     private String login(String username, String password) throws Exception {

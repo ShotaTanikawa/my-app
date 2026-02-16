@@ -62,6 +62,7 @@ export type AuditLog = {
 export type AuditLogQuery = {
   page?: number;
   size?: number;
+  limit?: number;
   action?: string;
   actor?: string;
   from?: string;
