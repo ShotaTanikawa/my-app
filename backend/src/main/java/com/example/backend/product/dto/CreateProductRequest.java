@@ -17,6 +17,7 @@ public record CreateProductRequest(
         @Size(max = 500) String description,
         @NotNull @DecimalMin(value = "0.01") BigDecimal unitPrice,
         @Min(0) Integer reorderPoint,
-        @Min(0) Integer reorderQuantity
+        @Min(0) Integer reorderQuantity,
+        @Min(1) Long categoryId
 ) {
 }

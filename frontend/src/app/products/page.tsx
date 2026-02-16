@@ -4,22 +4,76 @@ import { useAuth } from "@/components/auth-provider";
 import {
   addStock,
   createProduct,
+  createProductCategory,
   getProducts,
+  getProductCategories,
+  getProductsPage,
   updateProduct,
 } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
-import type { Product } from "@/types/api";
+import type { Product, ProductCategory } from "@/types/api";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+
+const PAGE_SIZE = 20;
+const DEFAULT_REORDER_POINT = 5;
+const DEFAULT_REORDER_QUANTITY = 10;
+
+type ProductFilterState = {
+  q: string;
+  categoryId: string;
+  lowStockOnly: boolean;
+};
+
+const EMPTY_FILTERS: ProductFilterState = {
+  q: "",
+  categoryId: "",
+  lowStockOnly: false,
+};
+
+function applyClientFilters(products: Product[], filters: ProductFilterState): Product[] {
+  const q = filters.q.trim().toLowerCase();
+  const categoryId = filters.categoryId ? Number(filters.categoryId) : null;
+
+  return products.filter((product) => {
+    if (q) {
+      const bySku = product.sku.toLowerCase().includes(q);
+      const byName = product.name.toLowerCase().includes(q);
+      if (!bySku && !byName) {
+        return false;
+      }
+    }
+
+    if (categoryId != null && product.categoryId !== categoryId) {
+      return false;
+    }
+
+    if (filters.lowStockOnly && product.availableQuantity > product.reorderPoint) {
+      return false;
+    }
+
+    return true;
+  });
+}
 
 export default function ProductsPage() {
   const { state } = useAuth();
   const credentials = state?.credentials;
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrevious, setHasPrevious] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const [filters, setFilters] = useState<ProductFilterState>(EMPTY_FILTERS);
+  const [draftFilters, setDraftFilters] = useState<ProductFilterState>(EMPTY_FILTERS);
 
   const [stockQuantity, setStockQuantity] = useState(1);
 
@@ -28,16 +82,19 @@ export default function ProductsPage() {
     name: "",
     description: "",
     unitPrice: "",
-    reorderPoint: "0",
-    reorderQuantity: "0",
+    categoryId: "",
   });
 
   const [editForm, setEditForm] = useState({
     name: "",
     description: "",
     unitPrice: "",
-    reorderPoint: "0",
-    reorderQuantity: "0",
+    categoryId: "",
+  });
+
+  const [categoryForm, setCategoryForm] = useState({
+    code: "",
+    name: "",
   });
 
   const role = state?.user.role;
@@ -58,22 +115,84 @@ export default function ProductsPage() {
     }
     let mounted = true;
 
-    async function load() {
-      setLoading(true);
-      setError("");
-
+    async function loadCategories() {
       try {
-        // 初期表示時は商品と在庫を同時に取り込む。
-        const data = await getProducts(currentCredentials!);
+        const data = await getProductCategories(currentCredentials!);
         if (mounted) {
-          setProducts(data);
+          setCategories(data);
         }
       } catch (err) {
         if (!mounted) {
           return;
         }
+        setError(err instanceof Error ? err.message : "カテゴリの取得に失敗しました。");
+      }
+    }
 
-        setError(err instanceof Error ? err.message : "商品の取得に失敗しました。");
+    void loadCategories();
+    return () => {
+      mounted = false;
+    };
+  }, [credentials]);
+
+  useEffect(() => {
+    const currentCredentials = credentials;
+    if (!currentCredentials) {
+      return;
+    }
+    let mounted = true;
+
+    async function loadProducts() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const data = await getProductsPage(currentCredentials!, {
+          page,
+          size: PAGE_SIZE,
+          q: filters.q.trim() || undefined,
+          categoryId: filters.categoryId ? Number(filters.categoryId) : undefined,
+          lowStockOnly: filters.lowStockOnly ? true : undefined,
+        });
+        if (!mounted) {
+          return;
+        }
+        setProducts(data.items);
+        setTotalPages(data.totalPages);
+        setTotalElements(data.totalElements);
+        setHasNext(data.hasNext);
+        setHasPrevious(data.hasPrevious);
+      } catch (err) {
+        try {
+          // ページングAPI失敗時は全件APIで代替して画面継続性を優先する。
+          const allProducts = await getProducts(currentCredentials!);
+          if (!mounted) {
+            return;
+          }
+
+          const filtered = applyClientFilters(allProducts, filters);
+          const total = filtered.length;
+          const size = PAGE_SIZE;
+          const totalPageCount = total === 0 ? 0 : Math.ceil(total / size);
+          const safePage = Math.min(page, Math.max(totalPageCount - 1, 0));
+          const start = safePage * size;
+          const end = start + size;
+
+          setProducts(filtered.slice(start, end));
+          setTotalPages(totalPageCount);
+          setTotalElements(total);
+          setHasPrevious(safePage > 0);
+          setHasNext(safePage + 1 < totalPageCount);
+          setPage(safePage);
+        } catch (fallbackErr) {
+          if (!mounted) {
+            return;
+          }
+          const fallbackMessage =
+            fallbackErr instanceof Error ? fallbackErr.message : "商品の取得に失敗しました。";
+          const originalMessage = err instanceof Error ? err.message : "商品の取得に失敗しました。";
+          setError(`${fallbackMessage} (${originalMessage})`);
+        }
       } finally {
         if (mounted) {
           setLoading(false);
@@ -81,16 +200,20 @@ export default function ProductsPage() {
       }
     }
 
-    void load();
-
+    void loadProducts();
     return () => {
       mounted = false;
     };
-  }, [credentials]);
+  }, [credentials, page, filters, reloadKey]);
 
   useEffect(() => {
     if (!selectedProduct) {
-      setEditForm({ name: "", description: "", unitPrice: "", reorderPoint: "0", reorderQuantity: "0" });
+      setEditForm({
+        name: "",
+        description: "",
+        unitPrice: "",
+        categoryId: "",
+      });
       return;
     }
 
@@ -98,8 +221,7 @@ export default function ProductsPage() {
       name: selectedProduct.name,
       description: selectedProduct.description ?? "",
       unitPrice: String(selectedProduct.unitPrice),
-      reorderPoint: String(selectedProduct.reorderPoint),
-      reorderQuantity: String(selectedProduct.reorderQuantity),
+      categoryId: selectedProduct.categoryId == null ? "" : String(selectedProduct.categoryId),
     });
   }, [selectedProduct]);
 
@@ -108,9 +230,14 @@ export default function ProductsPage() {
   }
 
   async function refreshProducts() {
-    // 作成/更新/在庫追加後に一覧を再取得して表示を同期する。
-    const data = await getProducts(credentials!);
-    setProducts(data);
+    // 作成/更新/在庫追加後に先頭ページから一覧を再取得する。
+    setPage(0);
+    setReloadKey((prev) => prev + 1);
+  }
+
+  async function refreshCategories() {
+    const data = await getProductCategories(credentials!);
+    setCategories(data);
   }
 
   async function handleCreateProduct(event: FormEvent<HTMLFormElement>) {
@@ -125,16 +252,16 @@ export default function ProductsPage() {
         name: createForm.name.trim(),
         description: createForm.description.trim() || undefined,
         unitPrice: Number(createForm.unitPrice),
-        reorderPoint: Number(createForm.reorderPoint || "0"),
-        reorderQuantity: Number(createForm.reorderQuantity || "0"),
+        reorderPoint: DEFAULT_REORDER_POINT,
+        reorderQuantity: DEFAULT_REORDER_QUANTITY,
+        categoryId: createForm.categoryId ? Number(createForm.categoryId) : undefined,
       });
       setCreateForm({
         sku: "",
         name: "",
         description: "",
         unitPrice: "",
-        reorderPoint: "0",
-        reorderQuantity: "0",
+        categoryId: "",
       });
       setSuccess("商品を作成しました。");
       await refreshProducts();
@@ -157,8 +284,7 @@ export default function ProductsPage() {
         name: editForm.name.trim(),
         description: editForm.description.trim() || undefined,
         unitPrice: Number(editForm.unitPrice),
-        reorderPoint: Number(editForm.reorderPoint || "0"),
-        reorderQuantity: Number(editForm.reorderQuantity || "0"),
+        categoryId: editForm.categoryId ? Number(editForm.categoryId) : undefined,
       });
       setSuccess("商品を更新しました。");
       await refreshProducts();
@@ -186,13 +312,106 @@ export default function ProductsPage() {
     }
   }
 
+  async function handleCreateCategory(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+
+    try {
+      await createProductCategory(credentials!, {
+        code: categoryForm.code.trim(),
+        name: categoryForm.name.trim(),
+      });
+      setCategoryForm({ code: "", name: "" });
+      setSuccess("カテゴリを作成しました。");
+      await refreshCategories();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "カテゴリ作成に失敗しました。");
+    }
+  }
+
+  function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPage(0);
+    setFilters(draftFilters);
+  }
+
+  function handleClearFilters() {
+    setDraftFilters(EMPTY_FILTERS);
+    setFilters(EMPTY_FILTERS);
+    setPage(0);
+  }
+
   return (
     <div className="page">
       <section className="card">
-        <h2 style={{ marginBottom: 10 }}>商品一覧</h2>
+        <div className="button-row" style={{ justifyContent: "space-between", marginBottom: 10 }}>
+          <h2>商品一覧</h2>
+          <span style={{ color: "#607086", fontSize: 13 }}>
+            全{totalElements}件 / {page + 1}ページ目
+          </span>
+        </div>
         <p style={{ margin: "0 0 12px", color: "#607086" }}>
-          商品を選択すると、下段で在庫追加や商品情報の編集ができます。
+          SKU・商品名検索、カテゴリ絞り込み、在庫注意フィルタに対応しています。
         </p>
+
+        <form className="form-grid" onSubmit={handleSearch}>
+          <div className="field">
+            <label htmlFor="product-q">SKU / 商品名</label>
+            <input
+              id="product-q"
+              className="input"
+              value={draftFilters.q}
+              onChange={(event) => setDraftFilters((prev) => ({ ...prev, q: event.target.value }))}
+              placeholder="部分一致で検索"
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="product-category-filter">カテゴリ</label>
+            <select
+              id="product-category-filter"
+              className="select"
+              value={draftFilters.categoryId}
+              onChange={(event) =>
+                setDraftFilters((prev) => ({ ...prev, categoryId: event.target.value }))
+              }
+            >
+              <option value="">すべて</option>
+              {categories
+                .filter((category) => category.active)
+                .map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.code} / {category.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="product-low-stock-filter">在庫フィルタ</label>
+            <select
+              id="product-low-stock-filter"
+              className="select"
+              value={draftFilters.lowStockOnly ? "true" : "false"}
+              onChange={(event) =>
+                setDraftFilters((prev) => ({
+                  ...prev,
+                  lowStockOnly: event.target.value === "true",
+                }))
+              }
+            >
+              <option value="false">すべて</option>
+              <option value="true">在庫注意のみ</option>
+            </select>
+          </div>
+          <div className="button-row" style={{ alignItems: "end" }}>
+            <button className="button primary" type="submit" disabled={loading}>
+              検索
+            </button>
+            <button className="button secondary" type="button" onClick={handleClearFilters} disabled={loading}>
+              クリア
+            </button>
+          </div>
+        </form>
 
         {error && <p className="inline-error">{error}</p>}
         {success && <p style={{ color: "#137a49", marginTop: 6 }}>{success}</p>}
@@ -203,11 +422,9 @@ export default function ProductsPage() {
               <tr>
                 <th>SKU</th>
                 <th>商品名</th>
+                <th>カテゴリ</th>
                 <th>単価</th>
-                <th>再発注点</th>
-                <th>発注ロット</th>
                 <th>販売可能</th>
-                <th>引当済</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -216,11 +433,9 @@ export default function ProductsPage() {
                 <tr key={product.id}>
                   <td>{product.sku}</td>
                   <td>{product.name}</td>
+                  <td>{product.categoryName ?? "-"}</td>
                   <td>{formatCurrency(product.unitPrice)}</td>
-                  <td>{product.reorderPoint}</td>
-                  <td>{product.reorderQuantity}</td>
                   <td>{product.availableQuantity}</td>
-                  <td>{product.reservedQuantity}</td>
                   <td>
                     <button
                       className="button secondary"
@@ -234,13 +449,38 @@ export default function ProductsPage() {
               ))}
               {!loading && products.length === 0 && (
                 <tr>
-                  <td colSpan={8}>
-                    商品がありません。{canManageProducts ? "下段の「商品作成（ADMIN）」から登録してください。" : ""}
+                  <td colSpan={6}>
+                    条件に一致する商品がありません。
+                    {canManageProducts ? " フィルタを変更するか、下段の「商品作成（ADMIN）」から登録してください。" : ""}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="button-row" style={{ justifyContent: "space-between", marginTop: 10 }}>
+          <span style={{ color: "#607086", fontSize: 13 }}>
+            {Math.max(totalPages, 1)}ページ中 {page + 1}ページ目
+          </span>
+          <div className="button-row">
+            <button
+              className="button secondary"
+              type="button"
+              onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+              disabled={!hasPrevious || loading}
+            >
+              前へ
+            </button>
+            <button
+              className="button secondary"
+              type="button"
+              onClick={() => setPage((prev) => prev + 1)}
+              disabled={!hasNext || loading}
+            >
+              次へ
+            </button>
+          </div>
         </div>
       </section>
 
@@ -248,6 +488,9 @@ export default function ProductsPage() {
         {canManageProducts && (
           <section className="card">
             <h2 style={{ marginBottom: 10 }}>商品作成（ADMIN）</h2>
+            <p style={{ margin: "0 0 12px", color: "#607086" }}>
+              再発注設定は標準値で自動登録されます。
+            </p>
             <form className="form-grid single" onSubmit={handleCreateProduct}>
               <div className="field">
                 <label htmlFor="create-sku">SKU</label>
@@ -270,6 +513,26 @@ export default function ProductsPage() {
                 />
               </div>
               <div className="field">
+                <label htmlFor="create-category">カテゴリ</label>
+                <select
+                  id="create-category"
+                  className="select"
+                  value={createForm.categoryId}
+                  onChange={(event) =>
+                    setCreateForm((prev) => ({ ...prev, categoryId: event.target.value }))
+                  }
+                >
+                  <option value="">未分類</option>
+                  {categories
+                    .filter((category) => category.active)
+                    .map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.code} / {category.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="field">
                 <label htmlFor="create-unit-price">単価</label>
                 <input
                   id="create-unit-price"
@@ -280,36 +543,6 @@ export default function ProductsPage() {
                   value={createForm.unitPrice}
                   onChange={(event) =>
                     setCreateForm((prev) => ({ ...prev, unitPrice: event.target.value }))
-                  }
-                  required
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="create-reorder-point">再発注点</label>
-                <input
-                  id="create-reorder-point"
-                  className="input"
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={createForm.reorderPoint}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({ ...prev, reorderPoint: event.target.value }))
-                  }
-                  required
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="create-reorder-quantity">発注ロット</label>
-                <input
-                  id="create-reorder-quantity"
-                  className="input"
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={createForm.reorderQuantity}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({ ...prev, reorderQuantity: event.target.value }))
                   }
                   required
                 />
@@ -359,6 +592,26 @@ export default function ProductsPage() {
                     />
                   </div>
                   <div className="field">
+                    <label htmlFor="edit-category">カテゴリ</label>
+                    <select
+                      id="edit-category"
+                      className="select"
+                      value={editForm.categoryId}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({ ...prev, categoryId: event.target.value }))
+                      }
+                    >
+                      <option value="">未分類</option>
+                      {categories
+                        .filter((category) => category.active)
+                        .map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.code} / {category.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div className="field">
                     <label htmlFor="edit-price">単価</label>
                     <input
                       id="edit-price"
@@ -369,36 +622,6 @@ export default function ProductsPage() {
                       value={editForm.unitPrice}
                       onChange={(event) =>
                         setEditForm((prev) => ({ ...prev, unitPrice: event.target.value }))
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="edit-reorder-point">再発注点</label>
-                    <input
-                      id="edit-reorder-point"
-                      className="input"
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={editForm.reorderPoint}
-                      onChange={(event) =>
-                        setEditForm((prev) => ({ ...prev, reorderPoint: event.target.value }))
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="edit-reorder-quantity">発注ロット</label>
-                    <input
-                      id="edit-reorder-quantity"
-                      className="input"
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={editForm.reorderQuantity}
-                      onChange={(event) =>
-                        setEditForm((prev) => ({ ...prev, reorderQuantity: event.target.value }))
                       }
                       required
                     />
@@ -448,6 +671,43 @@ export default function ProductsPage() {
           )}
         </section>
       </div>
+
+      {canManageProducts && (
+        <section className="card">
+          <h2 style={{ marginBottom: 10 }}>カテゴリ作成（ADMIN）</h2>
+          <form className="form-grid" onSubmit={handleCreateCategory}>
+            <div className="field">
+              <label htmlFor="create-category-code">カテゴリコード</label>
+              <input
+                id="create-category-code"
+                className="input"
+                value={categoryForm.code}
+                onChange={(event) =>
+                  setCategoryForm((prev) => ({ ...prev, code: event.target.value }))
+                }
+                required
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="create-category-name">カテゴリ名</label>
+              <input
+                id="create-category-name"
+                className="input"
+                value={categoryForm.name}
+                onChange={(event) =>
+                  setCategoryForm((prev) => ({ ...prev, name: event.target.value }))
+                }
+                required
+              />
+            </div>
+            <div className="button-row" style={{ alignItems: "end" }}>
+              <button className="button primary" type="submit">
+                カテゴリ追加
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
     </div>
   );
 }

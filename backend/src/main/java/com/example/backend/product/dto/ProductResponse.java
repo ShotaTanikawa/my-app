@@ -13,6 +13,9 @@ public record ProductResponse(
         BigDecimal unitPrice,
         Integer reorderPoint,
         Integer reorderQuantity,
+        Long categoryId,
+        String categoryCode,
+        String categoryName,
         Integer availableQuantity,
         Integer reservedQuantity
 ) {

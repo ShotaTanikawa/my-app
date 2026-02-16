@@ -35,8 +35,40 @@ export type Product = {
   unitPrice: number;
   reorderPoint: number;
   reorderQuantity: number;
+  categoryId: number | null;
+  categoryCode: string | null;
+  categoryName: string | null;
   availableQuantity: number;
   reservedQuantity: number;
+};
+
+// 商品カテゴリ。
+export type ProductCategory = {
+  id: number;
+  code: string;
+  name: string;
+  active: boolean;
+  sortOrder: number;
+};
+
+// 商品検索条件。
+export type ProductQuery = {
+  page?: number;
+  size?: number;
+  q?: string;
+  categoryId?: number;
+  lowStockOnly?: boolean;
+};
+
+// 商品一覧ページング結果。
+export type ProductPageResponse = {
+  items: Product[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
 };
 
 // 受注明細1行分。

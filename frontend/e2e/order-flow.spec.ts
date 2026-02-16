@@ -2,7 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 
 // 画面遷移を伴うログイン操作を共通化する。
 async function login(page: Page, username: string, password: string) {
-  await page.goto("/login");
+  // 既にログイン画面にいる場合は再遷移を省略し、CIの遅延によるタイムアウトを回避する。
+  if (!page.url().endsWith("/login")) {
+    await page.goto("/login");
+  }
   await page.locator("#username").fill(username);
   await page.locator("#password").fill(password);
   await page.getByRole("button", { name: "ログイン" }).click();

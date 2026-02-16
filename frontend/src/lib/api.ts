@@ -7,6 +7,9 @@ import type {
   LoginResponse,
   MeResponse,
   Product,
+  ProductCategory,
+  ProductPageResponse,
+  ProductQuery,
   ProductSupplierContract,
   PurchaseOrder,
   PurchaseOrderReceipt,
@@ -121,6 +124,43 @@ export async function getProducts(credentials: Credentials): Promise<Product[]> 
   return request<Product[]>("/api/products", { credentials });
 }
 
+export async function getProductsPage(
+  credentials: Credentials,
+  query: ProductQuery = {},
+): Promise<ProductPageResponse> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("page", String(query.page ?? 0));
+  searchParams.set("size", String(query.size ?? 20));
+
+  if (query.q) {
+    searchParams.set("q", query.q);
+  }
+  if (query.categoryId !== undefined) {
+    searchParams.set("categoryId", String(query.categoryId));
+  }
+  if (query.lowStockOnly !== undefined) {
+    searchParams.set("lowStockOnly", String(query.lowStockOnly));
+  }
+
+  return request<ProductPageResponse>(`/api/products/page?${searchParams.toString()}`, { credentials });
+}
+
+export async function getProductCategories(credentials: Credentials): Promise<ProductCategory[]> {
+  return request<ProductCategory[]>("/api/product-categories", { credentials });
+}
+
+export async function createProductCategory(
+  credentials: Credentials,
+  body: {
+    code: string;
+    name: string;
+    active?: boolean;
+    sortOrder?: number;
+  },
+): Promise<ProductCategory> {
+  return request<ProductCategory>("/api/product-categories", { method: "POST", credentials, body });
+}
+
 export async function createProduct(
   credentials: Credentials,
   body: {
@@ -130,6 +170,7 @@ export async function createProduct(
     unitPrice: number;
     reorderPoint: number;
     reorderQuantity: number;
+    categoryId?: number;
   },
 ): Promise<Product> {
   return request<Product>("/api/products", { method: "POST", credentials, body });
@@ -142,8 +183,9 @@ export async function updateProduct(
     name: string;
     description?: string;
     unitPrice: number;
-    reorderPoint: number;
-    reorderQuantity: number;
+    reorderPoint?: number;
+    reorderQuantity?: number;
+    categoryId?: number;
   },
 ): Promise<Product> {
   return request<Product>(`/api/products/${productId}`, { method: "PUT", credentials, body });

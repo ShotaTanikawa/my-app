@@ -135,7 +135,7 @@ export default function PurchaseOrdersPage() {
           <span style={{ color: "#607086", fontSize: 13 }}>{suggestions.length}件</span>
         </div>
         <p style={{ margin: "0 0 12px", color: "#607086" }}>
-          在庫不足・再発注点・契約条件から算出した推奨数量です。新規発注画面で「提案を取り込む」を使えます。
+          在庫不足と契約条件から算出した推奨数量です。新規発注画面で「提案を取り込む」を使えます。
         </p>
 
         <div className="table-wrap">
@@ -148,8 +148,6 @@ export default function PurchaseOrdersPage() {
                 <th>推奨単価</th>
                 <th>販売可能</th>
                 <th>引当済</th>
-                <th>再発注点</th>
-                <th>発注ロット</th>
                 <th>MOQ</th>
                 <th>ロットサイズ</th>
                 <th>不足数</th>
@@ -169,8 +167,6 @@ export default function PurchaseOrdersPage() {
                   </td>
                   <td>{suggestion.availableQuantity}</td>
                   <td>{suggestion.reservedQuantity}</td>
-                  <td>{suggestion.reorderPoint}</td>
-                  <td>{suggestion.reorderQuantity}</td>
                   <td>{suggestion.moq}</td>
                   <td>{suggestion.lotSize}</td>
                   <td>{suggestion.shortageQuantity}</td>
@@ -179,7 +175,7 @@ export default function PurchaseOrdersPage() {
               ))}
               {!loading && suggestions.length === 0 && (
                 <tr>
-                  <td colSpan={12}>補充提案はありません。</td>
+                  <td colSpan={10}>補充提案はありません。</td>
                 </tr>
               )}
             </tbody>

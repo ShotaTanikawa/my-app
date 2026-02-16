@@ -2,6 +2,7 @@ package com.example.backend.product;
 
 import com.example.backend.product.dto.AdjustStockRequest;
 import com.example.backend.product.dto.CreateProductRequest;
+import com.example.backend.product.dto.ProductPageResponse;
 import com.example.backend.product.dto.ProductResponse;
 import com.example.backend.product.dto.UpdateProductRequest;
 import jakarta.validation.Valid;
@@ -28,6 +29,18 @@ public class ProductController {
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','VIEWER')")
     public List<ProductResponse> getProducts() {
         return productService.getProducts();
+    }
+
+    @GetMapping("/page")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','VIEWER')")
+    public ProductPageResponse getProductsPage(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Boolean lowStockOnly,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return productService.getProductsPage(q, categoryId, lowStockOnly, page, size);
     }
 
     @GetMapping("/{productId}")

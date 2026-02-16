@@ -1,5 +1,6 @@
 package com.example.backend.product;
 
+import com.example.backend.inventory.Inventory;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
@@ -33,6 +34,13 @@ public class Product {
 
     @Column(name = "reorder_quantity", nullable = false)
     private Integer reorderQuantity;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private ProductCategory category;
+
+    @OneToOne(mappedBy = "product", fetch = FetchType.LAZY)
+    private Inventory inventory;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
@@ -106,6 +114,22 @@ public class Product {
 
     public void setReorderQuantity(Integer reorderQuantity) {
         this.reorderQuantity = reorderQuantity;
+    }
+
+    public ProductCategory getCategory() {
+        return category;
+    }
+
+    public void setCategory(ProductCategory category) {
+        this.category = category;
+    }
+
+    public Inventory getInventory() {
+        return inventory;
+    }
+
+    public void setInventory(Inventory inventory) {
+        this.inventory = inventory;
     }
 
     public OffsetDateTime getCreatedAt() {
