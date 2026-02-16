@@ -1,4 +1,6 @@
 package com.example.backend.purchase.dto;
+
+import java.math.BigDecimal;
 /**
  * APIレスポンスとして返す出力モデル。
  */
@@ -12,6 +14,13 @@ public record ReplenishmentSuggestionResponse(
         Integer reorderPoint,
         Integer reorderQuantity,
         Integer shortageQuantity,
-        Integer suggestedQuantity
+        Integer suggestedQuantity,
+        Long suggestedSupplierId,
+        String suggestedSupplierCode,
+        String suggestedSupplierName,
+        BigDecimal suggestedUnitCost,
+        Integer leadTimeDays,
+        Integer moq,
+        Integer lotSize
 ) {
 }

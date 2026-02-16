@@ -5,6 +5,7 @@ package com.example.backend.purchase;
 
 public enum PurchaseOrderStatus {
     ORDERED,
+    PARTIALLY_RECEIVED,
     RECEIVED,
     CANCELLED
 }

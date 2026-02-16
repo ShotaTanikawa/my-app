@@ -133,6 +133,9 @@ export default function NewOrderPage() {
     <div className="page">
       <section className="card">
         <h2 style={{ marginBottom: 10 }}>新規受注作成</h2>
+        <p style={{ margin: "0 0 12px", color: "#607086" }}>
+          顧客名を入力し、明細を1件以上追加して作成します。作成後は自動で詳細画面へ移動します。
+        </p>
 
         <form className="page" onSubmit={handleSubmit}>
           <div className="field">
@@ -210,7 +213,7 @@ export default function NewOrderPage() {
             <button className="button primary" type="submit" disabled={isSubmitting}>
               {isSubmitting ? "作成中..." : "受注作成"}
             </button>
-            <button className="button secondary" type="button" onClick={() => router.push("/orders")}> 
+            <button className="button secondary" type="button" onClick={() => router.push("/orders")}>
               キャンセル
             </button>
           </div>

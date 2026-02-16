@@ -72,6 +72,9 @@ export default function SessionsPage() {
           <h2>ログインセッション</h2>
           <span style={{ color: "#607086", fontSize: 13 }}>{sessions.length}件</span>
         </div>
+        <p style={{ margin: "0 0 12px", color: "#607086" }}>
+          不明な端末や不要なセッションは「失効」で即時ログアウトできます。
+        </p>
 
         {error && <p className="inline-error">{error}</p>}
         {success && <p style={{ color: "#137a49" }}>{success}</p>}

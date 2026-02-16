@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/components/auth-provider";
 import { getPurchaseOrders, getReplenishmentSuggestions } from "@/lib/api";
-import { formatDateTime } from "@/lib/format";
+import { formatCurrency, formatDateTime, formatPurchaseOrderStatus } from "@/lib/format";
 import type { PurchaseOrder, ReplenishmentSuggestion } from "@/types/api";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -74,6 +74,9 @@ export default function PurchaseOrdersPage() {
             </Link>
           )}
         </div>
+        <p style={{ margin: "0 0 12px", color: "#607086" }}>
+          発注番号を押すと詳細に移動できます。詳細画面で入荷登録・履歴確認・CSV出力が可能です。
+        </p>
 
         {error && <p className="inline-error">{error}</p>}
 
@@ -87,6 +90,8 @@ export default function PurchaseOrdersPage() {
                 <th>作成日時</th>
                 <th>入荷日時</th>
                 <th>明細数</th>
+                <th>入荷進捗</th>
+                <th>入荷回数</th>
               </tr>
             </thead>
             <tbody>
@@ -99,16 +104,24 @@ export default function PurchaseOrdersPage() {
                   </td>
                   <td>{order.supplierName}</td>
                   <td>
-                    <span className={`badge ${order.status}`}>{order.status}</span>
+                    <span className={`badge ${order.status}`}>
+                      {formatPurchaseOrderStatus(order.status)}
+                    </span>
                   </td>
                   <td>{formatDateTime(order.createdAt)}</td>
                   <td>{order.receivedAt ? formatDateTime(order.receivedAt) : "-"}</td>
                   <td>{order.items.length}</td>
+                  <td>
+                    {order.totalReceivedQuantity}/{order.totalQuantity}
+                  </td>
+                  <td>{order.receipts?.length ?? 0}</td>
                 </tr>
               ))}
               {!loading && orders.length === 0 && (
                 <tr>
-                  <td colSpan={6}>仕入発注データがありません。</td>
+                  <td colSpan={8}>
+                    仕入発注データがありません。{canOperate ? "右上の「新規発注」から登録してください。" : ""}
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -121,6 +134,9 @@ export default function PurchaseOrdersPage() {
           <h2>補充提案</h2>
           <span style={{ color: "#607086", fontSize: 13 }}>{suggestions.length}件</span>
         </div>
+        <p style={{ margin: "0 0 12px", color: "#607086" }}>
+          在庫不足・再発注点・契約条件から算出した推奨数量です。新規発注画面で「提案を取り込む」を使えます。
+        </p>
 
         <div className="table-wrap">
           <table className="table">
@@ -128,10 +144,14 @@ export default function PurchaseOrdersPage() {
               <tr>
                 <th>SKU</th>
                 <th>商品名</th>
+                <th>推奨仕入先</th>
+                <th>推奨単価</th>
                 <th>販売可能</th>
                 <th>引当済</th>
                 <th>再発注点</th>
                 <th>発注ロット</th>
+                <th>MOQ</th>
+                <th>ロットサイズ</th>
                 <th>不足数</th>
                 <th>推奨数</th>
               </tr>
@@ -141,17 +161,25 @@ export default function PurchaseOrdersPage() {
                 <tr key={suggestion.productId}>
                   <td>{suggestion.sku}</td>
                   <td>{suggestion.productName}</td>
+                  <td>{suggestion.suggestedSupplierName ?? "-"}</td>
+                  <td>
+                    {suggestion.suggestedUnitCost == null
+                      ? "-"
+                      : formatCurrency(suggestion.suggestedUnitCost)}
+                  </td>
                   <td>{suggestion.availableQuantity}</td>
                   <td>{suggestion.reservedQuantity}</td>
                   <td>{suggestion.reorderPoint}</td>
                   <td>{suggestion.reorderQuantity}</td>
+                  <td>{suggestion.moq}</td>
+                  <td>{suggestion.lotSize}</td>
                   <td>{suggestion.shortageQuantity}</td>
                   <td>{suggestion.suggestedQuantity}</td>
                 </tr>
               ))}
               {!loading && suggestions.length === 0 && (
                 <tr>
-                  <td colSpan={8}>補充提案はありません。</td>
+                  <td colSpan={12}>補充提案はありません。</td>
                 </tr>
               )}
             </tbody>

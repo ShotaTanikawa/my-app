@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/components/auth-provider";
 import { cancelOrder, confirmOrder, getOrder } from "@/lib/api";
-import { formatCurrency, formatDateTime } from "@/lib/format";
+import { formatCurrency, formatDateTime, formatSalesOrderStatus } from "@/lib/format";
 import type { SalesOrder } from "@/types/api";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -121,6 +121,9 @@ export default function OrderDetailPage() {
             一覧へ戻る
           </button>
         </div>
+        <p style={{ margin: "0 0 12px", color: "#607086" }}>
+          明細内容を確認して、必要に応じて受注確定またはキャンセルを実行します。
+        </p>
 
         {error && <p className="inline-error">{error}</p>}
 
@@ -140,7 +143,7 @@ export default function OrderDetailPage() {
               <div className="card" style={{ boxShadow: "none" }}>
                 <div className="stat-label">ステータス</div>
                 <div style={{ marginTop: 6 }}>
-                  <span className={`badge ${order.status}`}>{order.status}</span>
+                  <span className={`badge ${order.status}`}>{formatSalesOrderStatus(order.status)}</span>
                 </div>
               </div>
               <div className="card" style={{ boxShadow: "none" }}>

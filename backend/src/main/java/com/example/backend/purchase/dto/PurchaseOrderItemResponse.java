@@ -10,6 +10,8 @@ public record PurchaseOrderItemResponse(
         String sku,
         String productName,
         Integer quantity,
+        Integer receivedQuantity,
+        Integer remainingQuantity,
         BigDecimal unitCost
 ) {
 }

@@ -11,10 +11,14 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -82,7 +86,14 @@ class PurchaseOrderIntegrationTest {
                                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
                 )
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("RECEIVED"));
+                .andExpect(jsonPath("$.status").value("RECEIVED"))
+                .andExpect(jsonPath("$.totalReceivedQuantity").value(15))
+                .andExpect(jsonPath("$.totalRemainingQuantity").value(0))
+                .andExpect(jsonPath("$.receipts.length()").value(1))
+                .andExpect(jsonPath("$.receipts[0].receivedBy").value("operator"))
+                .andExpect(jsonPath("$.receipts[0].totalQuantity").value(15))
+                .andExpect(jsonPath("$.receipts[0].items.length()").value(1))
+                .andExpect(jsonPath("$.receipts[0].items[0].quantity").value(15));
 
         mockMvc.perform(
                         get("/api/products/{productId}", productId)
@@ -90,6 +101,170 @@ class PurchaseOrderIntegrationTest {
                 )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.availableQuantity").value(15));
+
+        mockMvc.perform(
+                        get("/api/purchase-orders/{purchaseOrderId}/receipts/export.csv", purchaseOrderId)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
+                )
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("text/csv"))
+                .andExpect(content().string(containsString("\"operator\"")))
+                .andExpect(content().string(containsString("\"PO Product\"")));
+    }
+
+    @Test
+    void operatorCanPartiallyReceivePurchaseOrder() throws Exception {
+        String adminToken = login("admin", "admin123");
+        String operatorToken = login("operator", "operator123");
+        long productId = createProduct(adminToken, "PO-PARTIAL-" + System.currentTimeMillis());
+
+        MvcResult createdResult = mockMvc.perform(
+                        post("/api/purchase-orders")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(Map.of(
+                                        "supplierName", "Partial Supplier",
+                                        "items", List.of(Map.of(
+                                                "productId", productId,
+                                                "quantity", 20,
+                                                "unitCost", 800
+                                        ))
+                                )))
+                )
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        long purchaseOrderId = objectMapper.readTree(createdResult.getResponse().getContentAsString())
+                .path("id").asLong();
+
+        mockMvc.perform(
+                        post("/api/purchase-orders/{purchaseOrderId}/receive", purchaseOrderId)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(Map.of(
+                                        "items", List.of(Map.of(
+                                                "productId", productId,
+                                                "quantity", 8
+                                        ))
+                                )))
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PARTIALLY_RECEIVED"))
+                .andExpect(jsonPath("$.totalQuantity").value(20))
+                .andExpect(jsonPath("$.totalReceivedQuantity").value(8))
+                .andExpect(jsonPath("$.totalRemainingQuantity").value(12))
+                .andExpect(jsonPath("$.items[0].receivedQuantity").value(8))
+                .andExpect(jsonPath("$.items[0].remainingQuantity").value(12))
+                .andExpect(jsonPath("$.receipts.length()").value(1))
+                .andExpect(jsonPath("$.receipts[0].receivedBy").value("operator"))
+                .andExpect(jsonPath("$.receipts[0].totalQuantity").value(8));
+
+        mockMvc.perform(
+                        get("/api/products/{productId}", productId)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.availableQuantity").value(8));
+
+        mockMvc.perform(
+                        post("/api/purchase-orders/{purchaseOrderId}/receive", purchaseOrderId)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RECEIVED"))
+                .andExpect(jsonPath("$.totalReceivedQuantity").value(20))
+                .andExpect(jsonPath("$.totalRemainingQuantity").value(0))
+                .andExpect(jsonPath("$.receipts.length()").value(2))
+                .andExpect(jsonPath("$.receipts[0].totalQuantity").value(12))
+                .andExpect(jsonPath("$.receipts[1].totalQuantity").value(8));
+
+        mockMvc.perform(
+                        get("/api/products/{productId}", productId)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.availableQuantity").value(20));
+    }
+
+    @Test
+    void receiptHistoryCanBeFilteredByActorAndDateRange() throws Exception {
+        String adminToken = login("admin", "admin123");
+        String operatorToken = login("operator", "operator123");
+        long productId = createProduct(adminToken, "PO-RECEIPTS-" + System.currentTimeMillis());
+
+        MvcResult createdResult = mockMvc.perform(
+                        post("/api/purchase-orders")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(Map.of(
+                                        "supplierName", "Receipt Supplier",
+                                        "items", List.of(Map.of(
+                                                "productId", productId,
+                                                "quantity", 10,
+                                                "unitCost", 500
+                                        ))
+                                )))
+                )
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        long purchaseOrderId = objectMapper.readTree(createdResult.getResponse().getContentAsString())
+                .path("id").asLong();
+
+        mockMvc.perform(
+                        post("/api/purchase-orders/{purchaseOrderId}/receive", purchaseOrderId)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(Map.of(
+                                        "items", List.of(Map.of(
+                                                "productId", productId,
+                                                "quantity", 4
+                                        ))
+                                )))
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PARTIALLY_RECEIVED"));
+
+        mockMvc.perform(
+                        post("/api/purchase-orders/{purchaseOrderId}/receive", purchaseOrderId)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(Map.of(
+                                        "items", List.of(Map.of(
+                                                "productId", productId,
+                                                "quantity", 6
+                                        ))
+                                )))
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RECEIVED"));
+
+        mockMvc.perform(
+                        get("/api/purchase-orders/{purchaseOrderId}/receipts", purchaseOrderId)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
+                                .queryParam("receivedBy", "operator")
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].receivedBy").value("operator"));
+
+        mockMvc.perform(
+                        get("/api/purchase-orders/{purchaseOrderId}/receipts", purchaseOrderId)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
+                                .queryParam("receivedBy", "admin")
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].receivedBy").value("admin"));
+
+        String future = OffsetDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        mockMvc.perform(
+                        get("/api/purchase-orders/{purchaseOrderId}/receipts", purchaseOrderId)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + operatorToken)
+                                .queryParam("from", future)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test

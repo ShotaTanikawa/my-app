@@ -1,8 +1,8 @@
 "use client";
 
 import { useAuth } from "@/components/auth-provider";
-import { createPurchaseOrder, getProducts, getReplenishmentSuggestions } from "@/lib/api";
-import type { Product, ReplenishmentSuggestion } from "@/types/api";
+import { createPurchaseOrder, getProducts, getReplenishmentSuggestions, getSuppliers } from "@/lib/api";
+import type { Product, ReplenishmentSuggestion, Supplier } from "@/types/api";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
@@ -18,9 +18,11 @@ export default function NewPurchaseOrderPage() {
   const credentials = state?.credentials;
 
   const [supplierName, setSupplierName] = useState("");
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [note, setNote] = useState("");
   const [items, setItems] = useState<LineItem[]>([{ productId: "", quantity: "1", unitCost: "1" }]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [suggestions, setSuggestions] = useState<ReplenishmentSuggestion[]>([]);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,6 +32,10 @@ export default function NewPurchaseOrderPage() {
   const productMap = useMemo(
     () => new Map(products.map((product) => [String(product.id), product])),
     [products],
+  );
+  const supplierMap = useMemo(
+    () => new Map(suppliers.map((supplier) => [String(supplier.id), supplier])),
+    [suppliers],
   );
 
   useEffect(() => {
@@ -42,9 +48,10 @@ export default function NewPurchaseOrderPage() {
     async function loadData() {
       try {
         // 発注入力に必要な商品マスタと補充提案を同時取得する。
-        const [productData, suggestionData] = await Promise.all([
+        const [productData, suggestionData, supplierData] = await Promise.all([
           getProducts(currentCredentials!),
           getReplenishmentSuggestions(currentCredentials!),
+          getSuppliers(currentCredentials!),
         ]);
 
         if (!mounted) {
@@ -53,6 +60,7 @@ export default function NewPurchaseOrderPage() {
 
         setProducts(productData);
         setSuggestions(suggestionData);
+        setSuppliers(supplierData);
       } catch (err) {
         if (!mounted) {
           return;
@@ -105,7 +113,12 @@ export default function NewPurchaseOrderPage() {
       .filter((suggestion) => suggestion.suggestedQuantity > 0)
       .map((suggestion) => {
         const product = productMap.get(String(suggestion.productId));
-        const fallbackUnitCost = product ? String(product.unitPrice) : "1";
+        const fallbackUnitCost =
+          suggestion.suggestedUnitCost != null
+            ? String(suggestion.suggestedUnitCost)
+            : product
+              ? String(product.unitPrice)
+              : "1";
         return {
           productId: String(suggestion.productId),
           quantity: String(suggestion.suggestedQuantity),
@@ -120,14 +133,37 @@ export default function NewPurchaseOrderPage() {
 
     setError("");
     setItems(suggestedItems);
+
+    // 提案に紐づく仕入先があれば、最多出現の候補を初期値として選ぶ。
+    const counts = new Map<string, number>();
+    for (const suggestion of suggestions) {
+      if (suggestion.suggestedSupplierId == null) {
+        continue;
+      }
+      const key = String(suggestion.suggestedSupplierId);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    const preferredSupplierId = [...counts.entries()]
+      .sort((left, right) => right[1] - left[1])
+      .at(0)?.[0];
+
+    if (preferredSupplierId) {
+      setSelectedSupplierId(preferredSupplierId);
+      const supplier = supplierMap.get(preferredSupplierId);
+      if (supplier && !supplierName.trim()) {
+        setSupplierName(supplier.name);
+      }
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
-    if (!supplierName.trim()) {
-      setError("仕入先名を入力してください。");
+    const normalizedSupplierName = supplierName.trim();
+    if (!selectedSupplierId && !normalizedSupplierName) {
+      setError("仕入先を選択するか、仕入先名を入力してください。");
       return;
     }
 
@@ -148,7 +184,8 @@ export default function NewPurchaseOrderPage() {
     setIsSubmitting(true);
     try {
       const created = await createPurchaseOrder(credentials!, {
-        supplierName: supplierName.trim(),
+        supplierId: selectedSupplierId ? Number(selectedSupplierId) : undefined,
+        supplierName: normalizedSupplierName || undefined,
         note: note.trim() || undefined,
         items: parsedItems,
       });
@@ -165,9 +202,40 @@ export default function NewPurchaseOrderPage() {
     <div className="page">
       <section className="card">
         <h2 style={{ marginBottom: 10 }}>新規仕入発注</h2>
+        <p style={{ margin: "0 0 12px", color: "#607086" }}>
+          仕入先を選択し、明細を入力して発注します。「提案を取り込む」で不足在庫の候補を自動反映できます。
+        </p>
 
         <form className="page" onSubmit={handleSubmit}>
           <div className="form-grid">
+            <div className="field">
+              <label htmlFor="supplier-id">仕入先マスタ</label>
+              <select
+                id="supplier-id"
+                className="select"
+                value={selectedSupplierId}
+                onChange={(event) => {
+                  const nextSupplierId = event.target.value;
+                  setSelectedSupplierId(nextSupplierId);
+                  if (!nextSupplierId) {
+                    return;
+                  }
+                  const supplier = supplierMap.get(nextSupplierId);
+                  if (supplier) {
+                    setSupplierName(supplier.name);
+                  }
+                }}
+              >
+                <option value="">選択しない（名称手入力）</option>
+                {suppliers
+                  .filter((supplier) => supplier.active)
+                  .map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.code} / {supplier.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
             <div className="field">
               <label htmlFor="supplier-name">仕入先名</label>
               <input
@@ -175,7 +243,6 @@ export default function NewPurchaseOrderPage() {
                 className="input"
                 value={supplierName}
                 onChange={(event) => setSupplierName(event.target.value)}
-                required
               />
             </div>
             <div className="field">

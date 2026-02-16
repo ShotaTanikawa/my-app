@@ -51,6 +51,11 @@ export default function LoginPage() {
       <form className="login-card" onSubmit={handleSubmit}>
         <h1 className="login-title">FlowStock</h1>
         <p className="login-subtitle">受発注・在庫管理へログイン</p>
+        <div className="login-helper">
+          <div className="login-helper-title">学習用アカウント</div>
+          <p className="login-helper-item">担当者: `operator / operator123`</p>
+          <p className="login-helper-item">管理者: `admin / admin123`</p>
+        </div>
         <div className="form-grid single">
           <div className="field">
             <label htmlFor="username">ユーザー名</label>
@@ -59,6 +64,7 @@ export default function LoginPage() {
               className="input"
               value={username}
               onChange={(event) => setUsername(event.target.value)}
+              autoComplete="username"
               required
             />
           </div>
@@ -70,6 +76,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
               required
             />
           </div>

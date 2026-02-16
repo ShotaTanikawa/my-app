@@ -13,6 +13,12 @@ const ACTION_OPTIONS = [
   "AUTH_LOGOUT",
   "AUTH_SESSION_REVOKE",
   "AUDIT_LOG_CLEANUP",
+  "SUPPLIER_CREATE",
+  "SUPPLIER_UPDATE",
+  "SUPPLIER_ACTIVATE",
+  "SUPPLIER_DEACTIVATE",
+  "PRODUCT_SUPPLIER_UPSERT",
+  "PRODUCT_SUPPLIER_UNLINK",
   "PRODUCT_CREATE",
   "PRODUCT_UPDATE",
   "STOCK_ADD",
@@ -190,6 +196,9 @@ export default function AuditLogsPage() {
             全{totalElements}件 / {page + 1}ページ目
           </span>
         </div>
+        <p style={{ margin: "0 0 12px", color: "#607086" }}>
+          操作種別とユーザー名で絞り込んで原因調査に使います。必要に応じてCSV出力や古いログ削除を実行してください。
+        </p>
 
         <form className="form-grid" onSubmit={handleSearch}>
           <div className="field">

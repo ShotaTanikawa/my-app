@@ -12,6 +12,7 @@ V1.1ロードマップ: `docs/v1.1-roadmap.md`
 - Spring Security + ロール制御（`ADMIN` / `OPERATOR` / `VIEWER`）
 - `@Transactional` による在庫引当・確定・キャンセル
 - 補充提案 + 仕入発注 + 入荷処理（在庫補充フロー）
+- 仕入先マスタ + 商品別契約単価（MOQ/ロット/主仕入先）
 - `@Scheduled` による低在庫レポートジョブ
 - 監査ログCSV出力・保持ポリシー（手動クリーンアップ/定期削除）
 - Flywayマイグレーション
@@ -97,6 +98,7 @@ pnpm dev
 - `/dashboard`
 - `/sessions`
 - `/products`
+- `/suppliers`
 - `/purchase-orders`
 - `/purchase-orders/new`
 - `/purchase-orders/[id]`
@@ -210,6 +212,37 @@ curl -X GET http://localhost:8080/api/purchase-orders/suggestions \
   -H "Authorization: Bearer ${TOKEN}"
 ```
 
+### 仕入先作成（ADMIN）
+
+```bash
+curl -X POST http://localhost:8080/api/suppliers \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "code": "SUP-001",
+    "name": "Demo Supplier",
+    "contactName": "Taro",
+    "email": "demo@example.com",
+    "phone": "03-0000-0000"
+  }'
+```
+
+### 商品-仕入先契約条件の設定（ADMIN）
+
+```bash
+curl -X POST http://localhost:8080/api/products/1/suppliers \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "supplierId": 1,
+    "unitCost": 1800,
+    "leadTimeDays": 5,
+    "moq": 10,
+    "lotSize": 5,
+    "primary": true
+  }'
+```
+
 ### 仕入発注作成（ADMIN/OPERATOR）
 
 ```bash
@@ -217,7 +250,7 @@ curl -X POST http://localhost:8080/api/purchase-orders \
   -H "Authorization: Bearer ${OP_TOKEN}" \
   -H 'Content-Type: application/json' \
   -d '{
-    "supplierName": "Demo Supplier",
+    "supplierId": 1,
     "note": "regular replenishment",
     "items": [
       {"productId": 1, "quantity": 20, "unitCost": 1800}
@@ -301,7 +334,6 @@ curl -X POST "http://localhost:8080/api/audit-logs/cleanup?retentionDays=90" \
 ## 今後の拡張候補
 
 - 監査ログ条件のプリセット保存
-- 仕入先マスタ・契約単価管理
 - CSV一括取込
 - 日次バッチ（在庫レポート）
 - UI/UX改善（監査ログ条件の保存・共有）

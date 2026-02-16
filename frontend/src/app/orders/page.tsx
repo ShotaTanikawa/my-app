@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/components/auth-provider";
 import { getOrders } from "@/lib/api";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatSalesOrderStatus } from "@/lib/format";
 import type { SalesOrder } from "@/types/api";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -70,6 +70,9 @@ export default function OrdersPage() {
             </Link>
           )}
         </div>
+        <p style={{ margin: "0 0 12px", color: "#607086" }}>
+          受注番号を押すと詳細画面に移動し、ステータス変更ができます。
+        </p>
 
         {error && <p className="inline-error">{error}</p>}
 
@@ -94,7 +97,7 @@ export default function OrdersPage() {
                   </td>
                   <td>{order.customerName}</td>
                   <td>
-                    <span className={`badge ${order.status}`}>{order.status}</span>
+                    <span className={`badge ${order.status}`}>{formatSalesOrderStatus(order.status)}</span>
                   </td>
                   <td>{formatDateTime(order.createdAt)}</td>
                   <td>{order.items.length}</td>
@@ -102,7 +105,9 @@ export default function OrdersPage() {
               ))}
               {!loading && orders.length === 0 && (
                 <tr>
-                  <td colSpan={5}>受注データがありません。</td>
+                  <td colSpan={5}>
+                    受注データがありません。{canOperate ? "右上の「新規受注」から最初の受注を登録してください。" : ""}
+                  </td>
                 </tr>
               )}
             </tbody>

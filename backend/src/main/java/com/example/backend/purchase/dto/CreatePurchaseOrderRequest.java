@@ -1,7 +1,6 @@
 package com.example.backend.purchase.dto;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 
@@ -11,7 +10,8 @@ import java.util.List;
  */
 
 public record CreatePurchaseOrderRequest(
-        @NotBlank @Size(max = 150) String supplierName,
+        Long supplierId,
+        @Size(max = 150) String supplierName,
         @Size(max = 500) String note,
         @NotEmpty List<@Valid CreatePurchaseOrderItemRequest> items
 ) {

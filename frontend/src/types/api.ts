@@ -58,25 +58,113 @@ export type SalesOrder = {
   items: SalesOrderItem[];
 };
 
+// 売上集計の粒度。
+export type SalesGroupBy = "DAY" | "WEEK" | "MONTH";
+
+// 売上サマリー。
+export type SalesSummary = {
+  from: string | null;
+  to: string | null;
+  metricBasis: string;
+  totalSalesAmount: number;
+  orderCount: number;
+  totalItemQuantity: number;
+  averageOrderAmount: number;
+};
+
+// 売上推移ポイント。
+export type SalesTrendPoint = {
+  bucketStart: string;
+  totalSalesAmount: number;
+  orderCount: number;
+  totalItemQuantity: number;
+};
+
+// 売上明細1行分。
+export type SalesLine = {
+  orderId: number;
+  orderNumber: string;
+  customerName: string;
+  soldAt: string;
+  productId: number;
+  sku: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  lineAmount: number;
+};
+
+// 売上レポートの検索条件。
+export type SalesQuery = {
+  from?: string;
+  to?: string;
+  groupBy?: SalesGroupBy;
+  lineLimit?: number;
+  limit?: number;
+};
+
+// 売上レポート。
+export type SalesReport = {
+  summary: SalesSummary;
+  groupBy: SalesGroupBy;
+  trends: SalesTrendPoint[];
+  lines: SalesLine[];
+  lineLimit: number;
+  totalLineCount: number;
+};
+
 // 仕入発注明細1行分。
 export type PurchaseOrderItem = {
   productId: number;
   sku: string;
   productName: string;
   quantity: number;
+  receivedQuantity: number;
+  remainingQuantity: number;
   unitCost: number;
+};
+
+// 1回の入荷イベント明細。
+export type PurchaseOrderReceiptItem = {
+  productId: number;
+  sku: string;
+  productName: string;
+  quantity: number;
+};
+
+// 1回の入荷イベント。
+export type PurchaseOrderReceipt = {
+  id: number;
+  receivedBy: string;
+  receivedAt: string;
+  totalQuantity: number;
+  items: PurchaseOrderReceiptItem[];
+};
+
+// 入荷履歴検索条件。
+export type PurchaseOrderReceiptQuery = {
+  receivedBy?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
 };
 
 // 仕入発注ヘッダと明細の集約モデル。
 export type PurchaseOrder = {
   id: number;
   orderNumber: string;
+  supplierId: number | null;
+  supplierCode: string | null;
   supplierName: string;
   note: string | null;
-  status: "ORDERED" | "RECEIVED" | "CANCELLED";
+  status: "ORDERED" | "PARTIALLY_RECEIVED" | "RECEIVED" | "CANCELLED";
   createdAt: string;
   receivedAt: string | null;
+  totalQuantity: number;
+  totalReceivedQuantity: number;
+  totalRemainingQuantity: number;
   items: PurchaseOrderItem[];
+  receipts: PurchaseOrderReceipt[];
 };
 
 // 補充提案1件分。
@@ -90,6 +178,38 @@ export type ReplenishmentSuggestion = {
   reorderQuantity: number;
   shortageQuantity: number;
   suggestedQuantity: number;
+  suggestedSupplierId: number | null;
+  suggestedSupplierCode: string | null;
+  suggestedSupplierName: string | null;
+  suggestedUnitCost: number | null;
+  leadTimeDays: number | null;
+  moq: number;
+  lotSize: number;
+};
+
+// 仕入先マスタ。
+export type Supplier = {
+  id: number;
+  code: string;
+  name: string;
+  contactName: string | null;
+  email: string | null;
+  phone: string | null;
+  note: string | null;
+  active: boolean;
+};
+
+// 商品と仕入先の契約条件。
+export type ProductSupplierContract = {
+  supplierId: number;
+  supplierCode: string;
+  supplierName: string;
+  supplierActive: boolean;
+  unitCost: number;
+  leadTimeDays: number;
+  moq: number;
+  lotSize: number;
+  primary: boolean;
 };
 
 // 監査ログ1件分。

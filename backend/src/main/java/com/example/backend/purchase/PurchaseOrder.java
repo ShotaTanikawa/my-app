@@ -1,10 +1,13 @@
 package com.example.backend.purchase;
 
+import com.example.backend.supplier.Supplier;
 import jakarta.persistence.*;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 /**
  * DBテーブルに対応する永続化エンティティ。
  */
@@ -22,6 +25,10 @@ public class PurchaseOrder {
 
     @Column(name = "supplier_name", nullable = false, length = 150)
     private String supplierName;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "supplier_id")
+    private Supplier supplier;
 
     @Column(length = 500)
     private String note;
@@ -42,6 +49,9 @@ public class PurchaseOrder {
     @OneToMany(mappedBy = "purchaseOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PurchaseOrderItem> items = new ArrayList<>();
 
+    @OneToMany(mappedBy = "purchaseOrder", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<PurchaseOrderReceipt> receipts = new LinkedHashSet<>();
+
     @PrePersist
     void onCreate() {
         OffsetDateTime now = OffsetDateTime.now();
@@ -57,6 +67,11 @@ public class PurchaseOrder {
     public void addItem(PurchaseOrderItem item) {
         item.setPurchaseOrder(this);
         this.items.add(item);
+    }
+
+    public void addReceipt(PurchaseOrderReceipt receipt) {
+        receipt.setPurchaseOrder(this);
+        this.receipts.add(receipt);
     }
 
     public Long getId() {
@@ -81,6 +96,14 @@ public class PurchaseOrder {
 
     public void setSupplierName(String supplierName) {
         this.supplierName = supplierName;
+    }
+
+    public Supplier getSupplier() {
+        return supplier;
+    }
+
+    public void setSupplier(Supplier supplier) {
+        this.supplier = supplier;
     }
 
     public String getNote() {
@@ -117,5 +140,9 @@ public class PurchaseOrder {
 
     public List<PurchaseOrderItem> getItems() {
         return items;
+    }
+
+    public Set<PurchaseOrderReceipt> getReceipts() {
+        return receipts;
     }
 }

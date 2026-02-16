@@ -190,6 +190,9 @@ export default function ProductsPage() {
     <div className="page">
       <section className="card">
         <h2 style={{ marginBottom: 10 }}>商品一覧</h2>
+        <p style={{ margin: "0 0 12px", color: "#607086" }}>
+          商品を選択すると、下段で在庫追加や商品情報の編集ができます。
+        </p>
 
         {error && <p className="inline-error">{error}</p>}
         {success && <p style={{ color: "#137a49", marginTop: 6 }}>{success}</p>}
@@ -231,7 +234,9 @@ export default function ProductsPage() {
               ))}
               {!loading && products.length === 0 && (
                 <tr>
-                  <td colSpan={8}>商品がありません。</td>
+                  <td colSpan={8}>
+                    商品がありません。{canManageProducts ? "下段の「商品作成（ADMIN）」から登録してください。" : ""}
+                  </td>
                 </tr>
               )}
             </tbody>

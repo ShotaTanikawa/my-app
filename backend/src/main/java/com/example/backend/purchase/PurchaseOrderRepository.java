@@ -15,11 +15,25 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
 
     boolean existsByOrderNumber(String orderNumber);
 
-    @EntityGraph(attributePaths = {"items", "items.product"})
+    @EntityGraph(attributePaths = {
+            "supplier",
+            "items",
+            "items.product",
+            "receipts",
+            "receipts.items",
+            "receipts.items.product"
+    })
     @Query("select distinct po from PurchaseOrder po where po.id = :id")
     Optional<PurchaseOrder> findDetailedById(@Param("id") Long id);
 
-    @EntityGraph(attributePaths = {"items", "items.product"})
+    @EntityGraph(attributePaths = {
+            "supplier",
+            "items",
+            "items.product",
+            "receipts",
+            "receipts.items",
+            "receipts.items.product"
+    })
     @Query("select distinct po from PurchaseOrder po order by po.createdAt desc")
     List<PurchaseOrder> findAllDetailed();
 }

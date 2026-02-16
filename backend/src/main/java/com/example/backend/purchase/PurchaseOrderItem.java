@@ -27,8 +27,18 @@ public class PurchaseOrderItem {
     @Column(nullable = false)
     private Integer quantity;
 
+    @Column(name = "received_quantity", nullable = false)
+    private Integer receivedQuantity;
+
     @Column(name = "unit_cost", nullable = false, precision = 12, scale = 2)
     private BigDecimal unitCost;
+
+    @PrePersist
+    void onCreate() {
+        if (this.receivedQuantity == null) {
+            this.receivedQuantity = 0;
+        }
+    }
 
     public Long getId() {
         return id;
@@ -60,6 +70,14 @@ public class PurchaseOrderItem {
 
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
+    }
+
+    public Integer getReceivedQuantity() {
+        return receivedQuantity;
+    }
+
+    public void setReceivedQuantity(Integer receivedQuantity) {
+        this.receivedQuantity = receivedQuantity;
     }
 
     public BigDecimal getUnitCost() {

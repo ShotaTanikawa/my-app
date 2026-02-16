@@ -7,9 +7,15 @@ import type {
   LoginResponse,
   MeResponse,
   Product,
+  ProductSupplierContract,
   PurchaseOrder,
+  PurchaseOrderReceipt,
+  PurchaseOrderReceiptQuery,
   ReplenishmentSuggestion,
   SalesOrder,
+  SalesQuery,
+  SalesReport,
+  Supplier,
 } from "@/types/api";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
@@ -187,12 +193,92 @@ export async function cancelOrder(credentials: Credentials, orderId: number): Pr
   });
 }
 
+export async function getSalesReport(
+  credentials: Credentials,
+  query: SalesQuery = {},
+): Promise<SalesReport> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("groupBy", query.groupBy ?? "DAY");
+  searchParams.set("lineLimit", String(query.lineLimit ?? 200));
+
+  if (query.from) {
+    searchParams.set("from", query.from);
+  }
+  if (query.to) {
+    searchParams.set("to", query.to);
+  }
+
+  return request<SalesReport>(`/api/sales?${searchParams.toString()}`, { credentials });
+}
+
+export async function exportSalesCsv(
+  credentials: Credentials,
+  query: SalesQuery = {},
+): Promise<Blob> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("limit", String(query.limit ?? 2000));
+
+  if (query.from) {
+    searchParams.set("from", query.from);
+  }
+  if (query.to) {
+    searchParams.set("to", query.to);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/sales/export.csv?${searchParams.toString()}`, {
+    method: "GET",
+    headers: {
+      Authorization: toBearerAuthHeader(credentials.accessToken),
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let message = "CSV export failed";
+
+    try {
+      const payload = (await response.json()) as Partial<ApiErrorPayload>;
+      message = payload.message ?? message;
+    } catch {
+      message = response.statusText || message;
+    }
+
+    throw new ApiClientError(message, response.status);
+  }
+
+  return response.blob();
+}
+
 export async function getPurchaseOrders(credentials: Credentials): Promise<PurchaseOrder[]> {
   return request<PurchaseOrder[]>("/api/purchase-orders", { credentials });
 }
 
 export async function getPurchaseOrder(credentials: Credentials, purchaseOrderId: number): Promise<PurchaseOrder> {
   return request<PurchaseOrder>(`/api/purchase-orders/${purchaseOrderId}`, { credentials });
+}
+
+export async function getPurchaseOrderReceipts(
+  credentials: Credentials,
+  purchaseOrderId: number,
+  query: PurchaseOrderReceiptQuery = {},
+): Promise<PurchaseOrderReceipt[]> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("limit", String(query.limit ?? 200));
+
+  if (query.receivedBy) {
+    searchParams.set("receivedBy", query.receivedBy);
+  }
+  if (query.from) {
+    searchParams.set("from", query.from);
+  }
+  if (query.to) {
+    searchParams.set("to", query.to);
+  }
+
+  return request<PurchaseOrderReceipt[]>(
+    `/api/purchase-orders/${purchaseOrderId}/receipts?${searchParams.toString()}`,
+    { credentials },
+  );
 }
 
 export async function getReplenishmentSuggestions(
@@ -204,7 +290,8 @@ export async function getReplenishmentSuggestions(
 export async function createPurchaseOrder(
   credentials: Credentials,
   body: {
-    supplierName: string;
+    supplierId?: number;
+    supplierName?: string;
     note?: string;
     items: Array<{ productId: number; quantity: number; unitCost: number }>;
   },
@@ -219,10 +306,14 @@ export async function createPurchaseOrder(
 export async function receivePurchaseOrder(
   credentials: Credentials,
   purchaseOrderId: number,
+  body?: {
+    items: Array<{ productId: number; quantity: number }>;
+  },
 ): Promise<PurchaseOrder> {
   return request<PurchaseOrder>(`/api/purchase-orders/${purchaseOrderId}/receive`, {
     method: "POST",
     credentials,
+    body,
   });
 }
 
@@ -232,6 +323,144 @@ export async function cancelPurchaseOrder(
 ): Promise<PurchaseOrder> {
   return request<PurchaseOrder>(`/api/purchase-orders/${purchaseOrderId}/cancel`, {
     method: "POST",
+    credentials,
+  });
+}
+
+export async function exportPurchaseOrderReceiptsCsv(
+  credentials: Credentials,
+  purchaseOrderId: number,
+  query: PurchaseOrderReceiptQuery = {},
+): Promise<Blob> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("limit", String(query.limit ?? 2000));
+
+  if (query.receivedBy) {
+    searchParams.set("receivedBy", query.receivedBy);
+  }
+  if (query.from) {
+    searchParams.set("from", query.from);
+  }
+  if (query.to) {
+    searchParams.set("to", query.to);
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/purchase-orders/${purchaseOrderId}/receipts/export.csv?${searchParams.toString()}`,
+    {
+    method: "GET",
+    headers: {
+      Authorization: toBearerAuthHeader(credentials.accessToken),
+    },
+    cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    let message = "CSV export failed";
+
+    try {
+      const payload = (await response.json()) as Partial<ApiErrorPayload>;
+      message = payload.message ?? message;
+    } catch {
+      message = response.statusText || message;
+    }
+
+    throw new ApiClientError(message, response.status);
+  }
+
+  return response.blob();
+}
+
+export async function getSuppliers(credentials: Credentials): Promise<Supplier[]> {
+  return request<Supplier[]>("/api/suppliers", { credentials });
+}
+
+export async function getSupplier(credentials: Credentials, supplierId: number): Promise<Supplier> {
+  return request<Supplier>(`/api/suppliers/${supplierId}`, { credentials });
+}
+
+export async function createSupplier(
+  credentials: Credentials,
+  body: {
+    code: string;
+    name: string;
+    contactName?: string;
+    email?: string;
+    phone?: string;
+    note?: string;
+  },
+): Promise<Supplier> {
+  return request<Supplier>("/api/suppliers", { method: "POST", credentials, body });
+}
+
+export async function updateSupplier(
+  credentials: Credentials,
+  supplierId: number,
+  body: {
+    code: string;
+    name: string;
+    contactName?: string;
+    email?: string;
+    phone?: string;
+    note?: string;
+    active?: boolean;
+  },
+): Promise<Supplier> {
+  return request<Supplier>(`/api/suppliers/${supplierId}`, {
+    method: "PUT",
+    credentials,
+    body,
+  });
+}
+
+export async function activateSupplier(credentials: Credentials, supplierId: number): Promise<Supplier> {
+  return request<Supplier>(`/api/suppliers/${supplierId}/activate`, {
+    method: "POST",
+    credentials,
+  });
+}
+
+export async function deactivateSupplier(credentials: Credentials, supplierId: number): Promise<Supplier> {
+  return request<Supplier>(`/api/suppliers/${supplierId}/deactivate`, {
+    method: "POST",
+    credentials,
+  });
+}
+
+export async function getProductSuppliers(
+  credentials: Credentials,
+  productId: number,
+): Promise<ProductSupplierContract[]> {
+  return request<ProductSupplierContract[]>(`/api/products/${productId}/suppliers`, { credentials });
+}
+
+export async function upsertProductSupplier(
+  credentials: Credentials,
+  productId: number,
+  body: {
+    supplierId: number;
+    unitCost: number;
+    leadTimeDays?: number;
+    moq?: number;
+    lotSize?: number;
+    primary?: boolean;
+  },
+): Promise<ProductSupplierContract> {
+  return request<ProductSupplierContract>(`/api/products/${productId}/suppliers`, {
+    method: "POST",
+    credentials,
+    body,
+  });
+}
+
+export async function removeProductSupplier(
+  credentials: Credentials,
+  productId: number,
+  supplierId: number,
+): Promise<void> {
+  return request<void>(`/api/products/${productId}/suppliers/${supplierId}`, {
+    method: "DELETE",
     credentials,
   });
 }

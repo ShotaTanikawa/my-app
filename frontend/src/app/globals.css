@@ -75,9 +75,17 @@ textarea {
 
 .brand-subtitle {
   margin-top: 4px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.sidebar-section-title {
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  color: #607086;
+  text-transform: uppercase;
+  margin-bottom: 8px;
 }
 
 .nav-link {
@@ -97,6 +105,17 @@ textarea {
   background: #d8eef5;
   color: #064c63;
   font-weight: 700;
+}
+
+.nav-label {
+  display: block;
+}
+
+.nav-caption {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.74rem;
+  color: #5f6f83;
 }
 
 .main {
@@ -119,6 +138,12 @@ textarea {
   font-family: var(--font-heading), sans-serif;
   font-size: 1.1rem;
   letter-spacing: -0.02em;
+}
+
+.header-breadcrumb {
+  font-size: 0.78rem;
+  color: #607086;
+  margin-bottom: 2px;
 }
 
 .header-subtitle {
@@ -153,6 +178,10 @@ textarea {
   padding: 22px;
 }
 
+.header-action-link {
+  text-decoration: none;
+}
+
 /* 画面部品（カード、表、フォーム、ボタン）。 */
 .page {
   display: grid;
@@ -182,6 +211,10 @@ textarea {
 
 .grid.cols-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid.cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .stat-label {
@@ -336,6 +369,12 @@ textarea {
   border-color: #bfeacb;
 }
 
+.badge.PARTIALLY_RECEIVED {
+  background: #e7f4ff;
+  color: #0a6180;
+  border-color: #b7ddf5;
+}
+
 .badge.CANCELLED {
   background: #fde8e8;
   color: var(--danger);
@@ -382,10 +421,32 @@ textarea {
   color: var(--muted);
 }
 
+.login-helper {
+  margin-bottom: 14px;
+  border: 1px dashed #c2d3e6;
+  border-radius: 12px;
+  background: #f7fafd;
+  padding: 10px 12px;
+}
+
+.login-helper-title {
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.login-helper-item {
+  margin: 2px 0;
+  color: #607086;
+  font-size: 0.84rem;
+}
+
 /* レスポンシブ時のカラム崩し。 */
 @media (max-width: 1024px) {
   .grid.cols-4,
-  .grid.cols-5 {
+  .grid.cols-5,
+  .grid.cols-3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -405,6 +466,7 @@ textarea {
   }
 
   .grid.cols-2,
+  .grid.cols-3,
   .grid.cols-4,
   .grid.cols-5 {
     grid-template-columns: minmax(0, 1fr);
