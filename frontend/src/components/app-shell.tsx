@@ -4,15 +4,15 @@ import { useAuth } from "@/components/auth-provider";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/products", label: "Products" },
-  { href: "/orders", label: "Orders" },
-];
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { state, logout } = useAuth();
+  const navItems = [
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/products", label: "Products" },
+    { href: "/orders", label: "Orders" },
+    ...(state?.user.role === "ADMIN" ? [{ href: "/audit-logs", label: "Audit Logs" }] : []),
+  ];
 
   if (pathname === "/login") {
     return <>{children}</>;

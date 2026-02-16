@@ -93,6 +93,7 @@ pnpm dev
 - `/orders`
 - `/orders/new`
 - `/orders/[id]`
+- `/audit-logs`（ADMIN）
 
 ## E2Eテスト（Playwright）
 
@@ -219,9 +220,16 @@ curl -X POST http://localhost:8080/api/auth/logout \
   -d "{\"refreshToken\":\"${REFRESH_TOKEN}\"}"
 ```
 
+### 監査ログ取得（ADMIN）
+
+```bash
+curl -X GET "http://localhost:8080/api/audit-logs?limit=100" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
 ## 今後の拡張候補
 
-- 監査ログ（誰がいつ在庫を動かしたか）
+- 監査ログの検索・フィルタ強化（期間/操作種別/ユーザー）
 - CSV一括取込
 - 日次バッチ（在庫レポート）
 - UI/UX改善（検索・フィルタ・ページング）

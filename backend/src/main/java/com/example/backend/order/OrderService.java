@@ -1,5 +1,6 @@
 package com.example.backend.order;
 
+import com.example.backend.audit.AuditLogService;
 import com.example.backend.common.InsufficientStockException;
 import com.example.backend.common.InvalidOrderStateException;
 import com.example.backend.common.ResourceNotFoundException;
@@ -28,15 +29,18 @@ public class OrderService {
     private final SalesOrderRepository salesOrderRepository;
     private final ProductRepository productRepository;
     private final InventoryRepository inventoryRepository;
+    private final AuditLogService auditLogService;
 
     public OrderService(
             SalesOrderRepository salesOrderRepository,
             ProductRepository productRepository,
-            InventoryRepository inventoryRepository
+            InventoryRepository inventoryRepository,
+            AuditLogService auditLogService
     ) {
         this.salesOrderRepository = salesOrderRepository;
         this.productRepository = productRepository;
         this.inventoryRepository = inventoryRepository;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional(readOnly = true)
@@ -88,6 +92,12 @@ public class OrderService {
         }
 
         SalesOrder savedOrder = salesOrderRepository.save(order);
+        auditLogService.log(
+                "ORDER_CREATE",
+                "ORDER",
+                savedOrder.getId().toString(),
+                "orderNumber=" + savedOrder.getOrderNumber() + ", customer=" + savedOrder.getCustomerName()
+        );
         return toResponse(savedOrder);
     }
 
@@ -116,6 +126,12 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.CONFIRMED);
+        auditLogService.log(
+                "ORDER_CONFIRM",
+                "ORDER",
+                order.getId().toString(),
+                "orderNumber=" + order.getOrderNumber()
+        );
         return toResponse(order);
     }
 
@@ -145,6 +161,12 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.CANCELLED);
+        auditLogService.log(
+                "ORDER_CANCEL",
+                "ORDER",
+                order.getId().toString(),
+                "orderNumber=" + order.getOrderNumber()
+        );
         return toResponse(order);
     }
 

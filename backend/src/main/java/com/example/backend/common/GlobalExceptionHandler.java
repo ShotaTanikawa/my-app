@@ -3,6 +3,7 @@ package com.example.backend.common;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -42,6 +43,15 @@ public class GlobalExceptionHandler {
                 ? "Authentication failed"
                 : ex.getMessage();
         return buildError(HttpStatus.UNAUTHORIZED, message, request.getRequestURI());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        // 権限不足は500ではなく403で返し、フロント側で適切に扱えるようにする。
+        String message = ex.getMessage() == null || ex.getMessage().isBlank()
+                ? "Access denied"
+                : ex.getMessage();
+        return buildError(HttpStatus.FORBIDDEN, message, request.getRequestURI());
     }
 
     @ExceptionHandler(Exception.class)

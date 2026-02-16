@@ -1,4 +1,11 @@
-import type { ApiErrorPayload, LoginResponse, MeResponse, Product, SalesOrder } from "@/types/api";
+import type {
+  ApiErrorPayload,
+  AuditLog,
+  LoginResponse,
+  MeResponse,
+  Product,
+  SalesOrder,
+} from "@/types/api";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
@@ -158,6 +165,10 @@ export async function cancelOrder(credentials: Credentials, orderId: number): Pr
     method: "POST",
     credentials,
   });
+}
+
+export async function getAuditLogs(credentials: Credentials, limit = 100): Promise<AuditLog[]> {
+  return request<AuditLog[]>(`/api/audit-logs?limit=${limit}`, { credentials });
 }
 
 export type { Credentials };

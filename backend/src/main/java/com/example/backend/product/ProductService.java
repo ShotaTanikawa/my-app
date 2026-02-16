@@ -1,5 +1,6 @@
 package com.example.backend.product;
 
+import com.example.backend.audit.AuditLogService;
 import com.example.backend.common.BusinessRuleException;
 import com.example.backend.common.ResourceNotFoundException;
 import com.example.backend.inventory.Inventory;
@@ -19,10 +20,16 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final InventoryRepository inventoryRepository;
+    private final AuditLogService auditLogService;
 
-    public ProductService(ProductRepository productRepository, InventoryRepository inventoryRepository) {
+    public ProductService(
+            ProductRepository productRepository,
+            InventoryRepository inventoryRepository,
+            AuditLogService auditLogService
+    ) {
         this.productRepository = productRepository;
         this.inventoryRepository = inventoryRepository;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional
@@ -44,6 +51,12 @@ public class ProductService {
         inventory.setAvailableQuantity(0);
         inventory.setReservedQuantity(0);
         Inventory savedInventory = inventoryRepository.save(inventory);
+        auditLogService.log(
+                "PRODUCT_CREATE",
+                "PRODUCT",
+                savedProduct.getId().toString(),
+                "sku=" + savedProduct.getSku() + ", name=" + savedProduct.getName()
+        );
 
         return toResponse(savedProduct, savedInventory);
     }
@@ -78,6 +91,12 @@ public class ProductService {
         Product updatedProduct = productRepository.save(product);
         Inventory inventory = inventoryRepository.findByProductId(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory not found for product: " + productId));
+        auditLogService.log(
+                "PRODUCT_UPDATE",
+                "PRODUCT",
+                updatedProduct.getId().toString(),
+                "name=" + updatedProduct.getName() + ", unitPrice=" + updatedProduct.getUnitPrice()
+        );
 
         return toResponse(updatedProduct, inventory);
     }
@@ -89,8 +108,15 @@ public class ProductService {
         Inventory inventory = inventoryRepository.findByProductIdForUpdate(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory not found for product: " + productId));
 
+        int before = inventory.getAvailableQuantity();
         inventory.setAvailableQuantity(inventory.getAvailableQuantity() + quantity);
         Inventory updatedInventory = inventoryRepository.save(inventory);
+        auditLogService.log(
+                "STOCK_ADD",
+                "PRODUCT",
+                productId.toString(),
+                "quantity=" + quantity + ", availableBefore=" + before + ", availableAfter=" + updatedInventory.getAvailableQuantity()
+        );
 
         return toResponse(product, updatedInventory);
     }

@@ -1,5 +1,6 @@
 package com.example.backend.user;
 
+import com.example.backend.audit.AuditLogService;
 import com.example.backend.security.JwtService;
 import com.example.backend.security.RefreshTokenService;
 import jakarta.validation.Valid;
@@ -26,17 +27,20 @@ public class AuthController {
     private final JwtService jwtService;
     private final AppUserRepository appUserRepository;
     private final RefreshTokenService refreshTokenService;
+    private final AuditLogService auditLogService;
 
     public AuthController(
             AuthenticationManager authenticationManager,
             JwtService jwtService,
             AppUserRepository appUserRepository,
-            RefreshTokenService refreshTokenService
+            RefreshTokenService refreshTokenService,
+            AuditLogService auditLogService
     ) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.appUserRepository = appUserRepository;
         this.refreshTokenService = refreshTokenService;
+        this.auditLogService = auditLogService;
     }
 
     @PostMapping("/login")
@@ -60,6 +64,14 @@ public class AuthController {
 
         String accessToken = jwtService.generateToken(authentication.getName(), role);
         String refreshToken = refreshTokenService.issueToken(user);
+        auditLogService.logAs(
+                authentication.getName(),
+                role,
+                "AUTH_LOGIN",
+                "USER",
+                user.getId().toString(),
+                "login succeeded"
+        );
         return new LoginResponse(
                 accessToken,
                 "Bearer",
@@ -74,6 +86,14 @@ public class AuthController {
         AppUser user = refreshTokenService.rotateToken(request.refreshToken());
         String accessToken = jwtService.generateToken(user.getUsername(), user.getRole().name());
         String refreshToken = refreshTokenService.issueToken(user);
+        auditLogService.logAs(
+                user.getUsername(),
+                user.getRole().name(),
+                "AUTH_REFRESH",
+                "USER",
+                user.getId().toString(),
+                "token refreshed"
+        );
 
         return new LoginResponse(
                 accessToken,
@@ -87,7 +107,15 @@ public class AuthController {
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(@Valid @RequestBody RefreshRequest request) {
-        refreshTokenService.revokeToken(request.refreshToken());
+        refreshTokenService.revokeToken(request.refreshToken())
+                .ifPresent(user -> auditLogService.logAs(
+                        user.getUsername(),
+                        user.getRole().name(),
+                        "AUTH_LOGOUT",
+                        "USER",
+                        user.getId().toString(),
+                        "logout succeeded"
+                ));
     }
 
     @GetMapping("/me")

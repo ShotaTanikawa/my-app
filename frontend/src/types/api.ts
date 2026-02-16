@@ -40,6 +40,17 @@ export type SalesOrder = {
   items: SalesOrderItem[];
 };
 
+export type AuditLog = {
+  id: number;
+  actorUsername: string;
+  actorRole: string;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  detail: string | null;
+  createdAt: string;
+};
+
 export type ApiErrorPayload = {
   timestamp: string;
   status: number;

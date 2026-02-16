@@ -14,6 +14,7 @@ import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Optional;
 
 @Service
 public class RefreshTokenService {
@@ -58,10 +59,16 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public void revokeToken(String rawToken) {
+    public Optional<AppUser> revokeToken(String rawToken) {
         String hashed = hash(rawToken);
-        refreshTokenRepository.findByTokenHashAndRevokedFalse(hashed)
-                .ifPresent(token -> token.setRevoked(true));
+        return refreshTokenRepository.findByTokenHashAndRevokedFalse(hashed)
+                .map(token -> {
+                    token.setRevoked(true);
+                    AppUser user = token.getUser();
+                    user.getUsername();
+                    user.getRole();
+                    return user;
+                });
     }
 
     @Scheduled(cron = "${jobs.refresh-token-cleanup-cron:0 0 * * * *}")
