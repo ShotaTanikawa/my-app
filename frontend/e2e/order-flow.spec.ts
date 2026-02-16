@@ -10,7 +10,7 @@ async function login(page: Page, username: string, password: string) {
 }
 
 async function logout(page: Page) {
-  await page.getByRole("button", { name: "Logout" }).click();
+  await page.getByRole("button", { name: /Logout|ログアウト/ }).click();
   await expect(page).toHaveURL(/\/login$/);
 }
 
@@ -105,10 +105,10 @@ test.describe("Order operation flow", () => {
     await page.getByRole("button", { name: "受注作成" }).click();
 
     await expect(page).toHaveURL(/\/orders\/\d+$/);
-    await expect(page.getByText("RESERVED", { exact: true })).toBeVisible();
+    await expect(page.locator(".badge.RESERVED")).toBeVisible();
 
     await page.getByRole("button", { name: "受注確定" }).click();
-    await expect(page.getByText("CONFIRMED", { exact: true })).toBeVisible();
+    await expect(page.locator(".badge.CONFIRMED")).toBeVisible();
     await expect(page.getByRole("button", { name: "受注確定" })).toHaveCount(0);
   });
 
@@ -146,10 +146,10 @@ test.describe("Order operation flow", () => {
     await page.getByRole("button", { name: "受注作成" }).click();
 
     await expect(page).toHaveURL(/\/orders\/\d+$/);
-    await expect(page.getByText("RESERVED", { exact: true })).toBeVisible();
+    await expect(page.locator(".badge.RESERVED")).toBeVisible();
 
     await page.getByRole("button", { name: "受注キャンセル" }).click();
-    await expect(page.getByText("CANCELLED", { exact: true })).toBeVisible();
+    await expect(page.locator(".badge.CANCELLED")).toBeVisible();
     await expect(page.getByRole("button", { name: "受注キャンセル" })).toHaveCount(0);
   });
 
@@ -188,7 +188,7 @@ test.describe("Order operation flow", () => {
     await expect(page).toHaveURL(/\/orders\/\d+$/);
     const orderNumber = await getOrderNumber(page);
     await page.getByRole("button", { name: "受注確定" }).click();
-    await expect(page.getByText("CONFIRMED", { exact: true })).toBeVisible();
+    await expect(page.locator(".badge.CONFIRMED")).toBeVisible();
 
     await logout(page);
     await login(page, "admin", "admin123");
